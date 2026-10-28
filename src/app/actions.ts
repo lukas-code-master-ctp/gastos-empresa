@@ -135,9 +135,12 @@ export async function deleteReport(id: string) {
 
 export async function decide(kind: "report" | "fund", id: string, formData: FormData) {
   const user = await requireUser();
-  const approve = formData.get("decision") === "APROBADO";
+  // APROBADO avanza la cadena · MODIFICAR devuelve al usuario · RECHAZADO cierra la solicitud
+  const decision = String(formData.get("decision"));
+  if (!["APROBADO", "MODIFICAR", "RECHAZADO"].includes(decision)) throw new Error("Decisión inválida");
+  const approve = decision === "APROBADO";
   const comment = str(formData, "comment");
-  if (!approve && !comment) throw new Error("Debes indicar el motivo del rechazo");
+  if (!approve && !comment) throw new Error("Debes indicar el motivo");
 
   const item =
     kind === "report"
@@ -152,12 +155,12 @@ export async function decide(kind: "report" | "fund", id: string, formData: Form
     ? next
       ? { currentStep: next }
       : { currentStep: null, status: "APROBADO" }
-    : { currentStep: null, status: "OBSERVADO", rejectReason: comment };
+    : { currentStep: null, status: decision === "MODIFICAR" ? "OBSERVADO" : "RECHAZADO", rejectReason: comment };
 
   if (kind === "report") await db.report.update({ where: { id }, data });
   else await db.fund.update({ where: { id }, data });
   await db.approval.create({
-    data: { [kind === "report" ? "reportId" : "fundId"]: id, step, decision: approve ? "APROBADO" : "RECHAZADO", comment, userId: user.id },
+    data: { [kind === "report" ? "reportId" : "fundId"]: id, step, decision, comment, userId: user.id },
   });
 
   // Gasto aprobado → se registra en el ERP
