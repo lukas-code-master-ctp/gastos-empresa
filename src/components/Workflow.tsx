@@ -1,5 +1,6 @@
 import { decide } from "@/app/actions";
-import { clp, fecha, ROLES, STEPS, TREASURY } from "@/lib/format";
+import { fecha, ROLES, STEPS, TREASURY } from "@/lib/format";
+import { RejectButton } from "./RejectButton";
 
 type ApprovalRow = { id: string; step: string; decision: string; comment: string | null; createdAt: Date; user: { name: string } };
 
@@ -38,6 +39,7 @@ export function History({ items }: { items: ApprovalRow[] }) {
     : a.decision === "APROBADO" ? `Aprobó (${STEPS[a.step]})`
     : a.decision === "RECHAZADO" ? `Rechazó (${STEPS[a.step]})`
     : a.decision === "GASTO_RECHAZADO" ? `Rechazó un gasto (${STEPS[a.step]})`
+    : a.decision === "GASTO_RESTAURADO" ? `Deshizo el rechazo de ${a.comment}`
     : a.decision === "EDITADO" ? `Editó un gasto (${ROLES[a.step] ?? a.step})`
     : TREASURY[a.comment ?? ""] ?? (a.comment === "DEVOLUCION_RECIBIDA" ? "Confirmó devolución recibida: se cerró el fondo" : `Tesorería: ${a.comment}`);
   return (
@@ -62,38 +64,25 @@ export function History({ items }: { items: ApprovalRow[] }) {
   );
 }
 
-type DecisionExpense = { id: string; merchant: string | null; amount: number | null; date: Date | null; rejectedAt: Date | null };
-
-export function DecisionForm({ kind, id, step, expenses = [] }: { kind: "report" | "fund"; id: string; step: string; expenses?: DecisionExpense[] }) {
-  const pending = expenses.filter((e) => !e.rejectedAt);
+export function DecisionForm({ kind, id, step }: { kind: "report" | "fund"; id: string; step: string }) {
+  const action = decide.bind(null, kind, id);
   return (
-    <form action={decide.bind(null, kind, id)} className="card space-y-3 border-amber-300">
+    <div className="card space-y-3 border-amber-300">
       <h2 className="font-semibold">Te toca revisar: {STEPS[step]}</h2>
-      {pending.length > 1 && (
-        <div>
-          <label className="label">Rechazar gastos puntuales (opcional)</label>
-          <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200">
-            {pending.map((e) => (
-              <li key={e.id}>
-                <label className="flex cursor-pointer items-center gap-3 px-3 py-2 text-sm hover:bg-red-50 has-[:checked]:bg-red-50">
-                  <input type="checkbox" name="rejectIds" value={e.id} />
-                  <span className="flex-1">{e.merchant ?? "Sin comercio"} <span className="text-slate-400">· {fecha(e.date)}</span></span>
-                  <span className="tabular-nums">{clp(e.amount)}</span>
-                </label>
-              </li>
-            ))}
-          </ul>
-          <p className="mt-1 text-xs text-slate-500">Los gastos marcados quedan rechazados y bloqueados; el resto sigue aprobándose.</p>
-        </div>
+      {kind === "report" && (
+        <p className="text-sm text-slate-600">Puedes rechazar gastos puntuales desde su fila. Al aprobar, el informe sigue con los gastos no rechazados.</p>
       )}
-      <div>
-        <label className="label">Motivo del rechazo</label>
-        <textarea name="comment" rows={2} className="input" placeholder="Obligatorio si rechazas el informe o algún gasto" />
+      <div className="flex flex-wrap items-start gap-2">
+        <form action={action}>
+          <button name="decision" value="APROBADO" className="btn">Aprobar</button>
+        </form>
+        <RejectButton
+          action={action}
+          hidden={{ decision: "RECHAZADO" }}
+          label={kind === "report" ? "Rechazar informe" : "Rechazar"}
+          title={kind === "report" ? "Rechazar el informe completo" : "Rechazar la solicitud"}
+        />
       </div>
-      <div className="flex flex-wrap gap-2">
-        <button name="decision" value="APROBADO" className="btn">{kind === "report" && pending.length > 1 ? "Aprobar (sin los marcados)" : "Aprobar"}</button>
-        <button name="decision" value="RECHAZADO" className="btn-danger">{kind === "report" ? "Rechazar informe completo" : "Rechazar"}</button>
-      </div>
-    </form>
+    </div>
   );
 }

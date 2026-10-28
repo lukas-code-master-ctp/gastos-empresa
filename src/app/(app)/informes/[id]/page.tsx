@@ -3,7 +3,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
-import { deleteReport, submitReport } from "@/app/actions";
+import { deleteReport, rejectExpense, restoreExpense, submitReport } from "@/app/actions";
+import { RejectButton } from "@/components/RejectButton";
 import { clp, fecha, FUND_TYPES, REPORT_TYPES, STEPS, TREASURY } from "@/lib/format";
 import { canApprove, expenseEditMode, missingFields, rejectedTotal, reportTotal } from "@/lib/workflow";
 import { StatusBadge } from "@/components/Badge";
@@ -29,6 +30,7 @@ export default async function InformePage({ params }: { params: Promise<{ id: st
   if (!mine && !isApprover && !isTreasury && !["CONTABILIDAD", "CONTROLLER", "ADMIN"].includes(user.role) && r.user.managerId !== user.id) notFound();
 
   const editable = mine && r.status === "BORRADOR";
+  const reviewing = isApprover && r.status === "EN_APROBACION";
   // Contabilidad, controller o tesorería pueden editar los gastos mientras el informe está en curso
   const reviewerEdit = expenseEditMode(user, { userId: r.userId, rejectedAt: null, user: r.user, report: r }) === "reviewer";
   const total = reportTotal(r.expenses);
@@ -77,51 +79,65 @@ export default async function InformePage({ params }: { params: Promise<{ id: st
       )}
       {r.erpRef && <div className="text-xs text-slate-500">Registrado en ERP: {r.erpRef} ({fecha(r.erpSyncedAt)})</div>}
 
-      {isApprover && r.status === "EN_APROBACION" && <DecisionForm kind="report" id={r.id} step={r.currentStep!} expenses={r.expenses} />}
       {isTreasury && r.status === "APROBADO" && <TreasuryReportPanel report={{ ...r, total }} />}
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           <div className="card overflow-x-auto p-0">
             <table className="table">
-              <thead><tr><th>Fecha</th><th>Comercio</th><th>Documento</th><th>Categoría</th><th>Proyecto</th><th className="text-right">IVA</th><th className="text-right">Total</th></tr></thead>
+              <thead><tr><th>Fecha</th><th>Comercio / documento</th><th>Categoría / proyecto</th><th className="text-right">IVA</th><th className="text-right">Total</th>{reviewing && <th />}</tr></thead>
               <tbody>
                 {r.expenses.map((e) => {
                   const missing = missingFields(e);
                   return (
                     <Fragment key={e.id}>
                     <tr className={e.rejectedAt ? "bg-slate-50 text-slate-400 line-through [&>td]:border-b-0" : undefined}>
-                      <td>{fecha(e.date)}</td>
+                      <td className="whitespace-nowrap">{fecha(e.date)}</td>
                       <td>
                         {mine || e.receiptPath ? (
                           <Link href={mine ? `/gastos/${e.id}` : `/api/files/${e.receiptPath}`} target={mine ? undefined : "_blank"} className={e.rejectedAt ? "" : "text-emerald-700 hover:underline"}>{e.merchant ?? "Sin comercio"}</Link>
                         ) : (e.merchant)}
-                        {e.rutProvider && <div className="text-xs text-slate-400">{e.rutProvider}</div>}
+                        <div className="text-xs text-slate-400">{[e.docType, e.docNumber, e.rutProvider].filter(Boolean).join(" · ")}</div>
                         {!e.rejectedAt && missing.length > 0 && <div className="text-xs text-amber-700 no-underline">Falta: {missing.join(", ")}</div>}
                         {!e.rejectedAt && (editable || reviewerEdit) && (
                           <Link href={`/gastos/${e.id}`} className="block text-xs text-slate-500 underline hover:text-emerald-700">Editar</Link>
                         )}
                       </td>
-                      <td className="text-xs">{e.docType} {e.docNumber}</td>
-                      <td>{e.category?.name ?? "—"}</td>
-                      <td>{e.project?.name ?? "—"}</td>
+                      <td>
+                        {e.category?.name ?? "—"}
+                        {e.project && <div className="text-xs text-slate-400">{e.project.name}</div>}
+                      </td>
                       <td className="text-right tabular-nums">{clp(e.iva)}</td>
-                      <td className="text-right tabular-nums">{clp(e.amount)}</td>
+                      <td className="whitespace-nowrap text-right tabular-nums">{clp(e.amount)}</td>
+                      {reviewing && (
+                        <td className="text-right no-underline">
+                          {!e.rejectedAt && <RejectButton action={rejectExpense.bind(null, r.id, e.id)} label="Rechazar" title={`Rechazar gasto: ${e.merchant ?? "sin comercio"} (${clp(e.amount)})`} small />}
+                        </td>
+                      )}
                     </tr>
                     {e.rejectedAt && (
                       <tr className="bg-slate-50">
-                        <td colSpan={7} className="text-sm text-red-700">
-                          ✕ Rechazado por {e.rejectedBy}{e.rejectedStep ? ` (${STEPS[e.rejectedStep] ?? e.rejectedStep})` : ""}: {e.rejectedReason}
+                        <td colSpan={reviewing ? 6 : 5} className="text-sm text-red-700">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <span>✕ Rechazado por {e.rejectedBy}{e.rejectedStep ? ` (${STEPS[e.rejectedStep] ?? e.rejectedStep})` : ""}: {e.rejectedReason}</span>
+                            {reviewing && e.rejectedStep === r.currentStep && (
+                              <form action={restoreExpense.bind(null, r.id, e.id)}>
+                                <button className="text-xs text-slate-600 underline hover:text-slate-900">Deshacer</button>
+                              </form>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     )}
                     </Fragment>
                   );
                 })}
-                <tr className="font-semibold"><td colSpan={6}>{rejectedCount > 0 ? "Total aprobado" : "Total"}</td><td className="text-right tabular-nums">{clp(total)}</td></tr>
+                <tr className="font-semibold"><td colSpan={4}>{rejectedCount > 0 ? "Total aprobado" : "Total"}</td><td className="text-right tabular-nums">{clp(total)}</td>{reviewing && <td />}</tr>
               </tbody>
             </table>
           </div>
+
+          {reviewing && <DecisionForm kind="report" id={r.id} step={r.currentStep!} />}
 
           {editable && (
             <>

@@ -167,12 +167,11 @@ export async function deleteReport(id: string) {
 
 export async function decide(kind: "report" | "fund", id: string, formData: FormData) {
   const user = await requireUser();
-  // APROBADO avanza la cadena (sin los gastos marcados como rechazados) · RECHAZADO cierra todo
+  // APROBADO avanza la cadena con los gastos no rechazados · RECHAZADO cierra todo
   const decision = String(formData.get("decision"));
   if (!["APROBADO", "RECHAZADO"].includes(decision)) throw new Error("Decisión inválida");
   const comment = str(formData, "comment");
-  const rejectIds = kind === "report" ? formData.getAll("rejectIds").map(String) : [];
-  if ((decision === "RECHAZADO" || rejectIds.length) && !comment) throw new Error("Debes indicar el motivo del rechazo");
+  if (decision === "RECHAZADO" && !comment) throw new Error("Debes indicar el motivo del rechazo");
 
   const item =
     kind === "report"
@@ -182,19 +181,13 @@ export async function decide(kind: "report" | "fund", id: string, formData: Form
     throw new Error("No te corresponde aprobar este paso");
   const step = item.currentStep!;
 
-  let approve = decision === "APROBADO";
-  if (kind === "report") {
-    // Rechazar todo el informe equivale a rechazar todos sus gastos pendientes
-    const pending = await db.expense.findMany({ where: { reportId: id, rejectedAt: null } });
-    const toReject = approve ? pending.filter((e) => rejectIds.includes(e.id)) : pending;
-    if (approve && toReject.length === pending.length) approve = false;
-    const rejected = { rejectedAt: new Date(), rejectedReason: comment, rejectedStep: step, rejectedBy: user.name };
-    for (const e of toReject) await db.expense.update({ where: { id: e.id }, data: rejected });
-    if (approve)
-      for (const e of toReject)
-        await db.approval.create({
-          data: { reportId: id, step, decision: "GASTO_RECHAZADO", comment: `${e.merchant ?? "gasto"} (${clp(e.amount)}): ${comment}`, userId: user.id },
-        });
+  const approve = decision === "APROBADO";
+  if (kind === "report" && !approve) {
+    // Rechazar el informe completo deja rechazados todos sus gastos pendientes
+    await db.expense.updateMany({
+      where: { reportId: id, rejectedAt: null },
+      data: { rejectedAt: new Date(), rejectedReason: comment, rejectedStep: step, rejectedBy: user.name },
+    });
   }
 
   const next = approve ? nextStep(step) : null;
@@ -225,6 +218,42 @@ export async function decide(kind: "report" | "fund", id: string, formData: Form
   }
   revalidatePath("/aprobaciones");
   redirect("/aprobaciones");
+}
+
+// Rechazo de un gasto puntual desde su fila. Si era el último pendiente, se rechaza el informe.
+export async function rejectExpense(reportId: string, expenseId: string, formData: FormData) {
+  const user = await requireUser();
+  const comment = str(formData, "comment");
+  if (!comment) throw new Error("Debes indicar el motivo del rechazo");
+  const r = await db.report.findUniqueOrThrow({ where: { id: reportId }, include: { user: true } });
+  if (r.status !== "EN_APROBACION" || !canApprove(user, r.currentStep, r.user)) throw new Error("No te corresponde revisar este paso");
+  const e = await db.expense.findFirstOrThrow({ where: { id: expenseId, reportId, rejectedAt: null } });
+  const step = r.currentStep!;
+  await db.expense.update({
+    where: { id: e.id },
+    data: { rejectedAt: new Date(), rejectedReason: comment, rejectedStep: step, rejectedBy: user.name },
+  });
+  await db.approval.create({
+    data: { reportId, step, decision: "GASTO_RECHAZADO", comment: `${e.merchant ?? "gasto"} (${clp(e.amount)}): ${comment}`, userId: user.id },
+  });
+  const pending = await db.expense.count({ where: { reportId, rejectedAt: null } });
+  if (pending === 0) {
+    await db.report.update({ where: { id: reportId }, data: { currentStep: null, status: "RECHAZADO", rejectReason: "Todos los gastos fueron rechazados" } });
+    await db.approval.create({ data: { reportId, step, decision: "RECHAZADO", comment: "Todos los gastos fueron rechazados", userId: user.id } });
+    redirect("/aprobaciones");
+  }
+  revalidatePath(`/informes/${reportId}`);
+}
+
+// Deshacer el rechazo de un gasto mientras el informe sigue en el mismo paso
+export async function restoreExpense(reportId: string, expenseId: string) {
+  const user = await requireUser();
+  const r = await db.report.findUniqueOrThrow({ where: { id: reportId }, include: { user: true } });
+  if (r.status !== "EN_APROBACION" || !canApprove(user, r.currentStep, r.user)) throw new Error("No te corresponde revisar este paso");
+  const e = await db.expense.findFirstOrThrow({ where: { id: expenseId, reportId, rejectedStep: r.currentStep } });
+  await db.expense.update({ where: { id: e.id }, data: { rejectedAt: null, rejectedReason: null, rejectedStep: null, rejectedBy: null } });
+  await db.approval.create({ data: { reportId, step: r.currentStep!, decision: "GASTO_RESTAURADO", comment: e.merchant ?? "gasto", userId: user.id } });
+  revalidatePath(`/informes/${reportId}`);
 }
 
 // ---------- Fondos ----------
