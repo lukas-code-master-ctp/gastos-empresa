@@ -131,9 +131,10 @@ export async function setReportExpenses(id: string, formData: FormData) {
   const r = await db.report.findUniqueOrThrow({ where: { id } });
   if (r.userId !== user.id || r.status !== "BORRADOR") throw new Error("No editable");
   const ids = formData.getAll("expenseIds").map(String);
+  await db.report.update({ where: { id }, data: { title: str(formData, "title") ?? r.title } });
   await db.expense.updateMany({ where: { reportId: id }, data: { reportId: null } });
   await db.expense.updateMany({ where: { id: { in: ids }, userId: user.id, reportId: null }, data: { reportId: id } });
-  revalidatePath(`/informes/${id}`);
+  redirect(`/informes/${id}`);
 }
 
 export async function submitReport(id: string) {

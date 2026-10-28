@@ -3,12 +3,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
-import { deleteReport, setReportExpenses, submitReport } from "@/app/actions";
+import { deleteReport, submitReport } from "@/app/actions";
 import { clp, fecha, FUND_TYPES, REPORT_TYPES, STEPS, TREASURY } from "@/lib/format";
 import { canApprove, expenseEditMode, missingFields, rejectedTotal, reportTotal } from "@/lib/workflow";
 import { StatusBadge } from "@/components/Badge";
 import { ChainProgress, DecisionForm, History } from "@/components/Workflow";
-import { ExpensePicker } from "@/components/ExpensePicker";
 import { TreasuryReportPanel } from "@/components/Treasury";
 
 export default async function InformePage({ params }: { params: Promise<{ id: string }> }) {
@@ -36,7 +35,6 @@ export default async function InformePage({ params }: { params: Promise<{ id: st
   const rejected = rejectedTotal(r.expenses);
   const rejectedCount = r.expenses.filter((e) => e.rejectedAt).length;
   const incomplete = r.expenses.some((e) => missingFields(e).length > 0);
-  const available = editable ? await db.expense.findMany({ where: { userId: user.id, OR: [{ reportId: null }, { reportId: r.id }] }, orderBy: { date: "desc" } }) : [];
 
   return (
     <div className="space-y-6">
@@ -127,12 +125,8 @@ export default async function InformePage({ params }: { params: Promise<{ id: st
 
           {editable && (
             <>
-              <form action={setReportExpenses.bind(null, r.id)} className="card space-y-3">
-                <h2 className="font-semibold">Gastos del informe</h2>
-                <ExpensePicker expenses={available} />
-                <button className="btn-secondary">Actualizar gastos</button>
-              </form>
               <div className="flex flex-wrap items-center gap-3">
+                <Link href={`/informes/${r.id}/editar`} className="btn-secondary">← Volver a elegir gastos</Link>
                 <form action={submitReport.bind(null, r.id)}>
                   <button className="btn" disabled={r.expenses.length === 0 || incomplete}>
                     Enviar informe
