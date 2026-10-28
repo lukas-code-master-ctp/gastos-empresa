@@ -47,7 +47,7 @@ export default async function InformePage({ params }: { params: Promise<{ id: st
         </div>
       </div>
 
-      <ChainProgress status={r.status} currentStep={r.currentStep} hasManager={Boolean(r.user.managerId)} />
+      <ChainProgress status={r.status} currentStep={r.currentStep} hasManager={Boolean(r.user.managerId)} approvals={r.approvals} />
 
       {r.status === "OBSERVADO" && r.rejectReason && (
         <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">

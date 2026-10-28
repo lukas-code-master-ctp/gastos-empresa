@@ -34,7 +34,7 @@ export default async function FondoPage({ params }: { params: Promise<{ id: stri
           {f.status === "ACTIVO" && f.type === "CAJA_CHICA" && <div className="text-sm text-slate-500">Saldo {clp(f.balance)}</div>}
         </div>
       </div>
-      <ChainProgress status={f.status} currentStep={f.currentStep} hasManager={Boolean(f.user.managerId)} />
+      <ChainProgress status={f.status} currentStep={f.currentStep} hasManager={Boolean(f.user.managerId)} approvals={f.approvals} />
 
       {f.status === "OBSERVADO" && (
         <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
