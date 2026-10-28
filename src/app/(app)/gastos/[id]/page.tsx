@@ -25,6 +25,11 @@ export default async function GastoPage({ params, searchParams }: { params: Prom
         <h1 className="h1">{e.merchant ?? "Nuevo gasto"}</h1>
         <Link href="/gastos" className="text-sm text-emerald-700 hover:underline">← Mis gastos</Link>
       </div>
+      {e.observation && editable && (
+        <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+          <b>El aprobador pidió corregir este gasto:</b> {e.observation}
+        </p>
+      )}
       {ocr === "1" && <p className="rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800">La IA leyó la boleta. Revisa y corrige o completa los datos{doubts.length ? "; los campos en amarillo quedaron dudosos" : ""}.</p>}
       {ocr === "0" && <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">No se pudo leer la boleta automáticamente. Completa los datos a mano.</p>}
       <div className="grid gap-6 lg:grid-cols-2">

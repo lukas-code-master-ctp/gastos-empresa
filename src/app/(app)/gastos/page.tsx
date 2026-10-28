@@ -35,6 +35,7 @@ export default async function GastosPage() {
                   <td>
                     <Link href={`/gastos/${e.id}`} className="font-medium text-emerald-700 hover:underline">{e.merchant ?? "Sin comercio"}</Link>
                     {missing.length > 0 && <div className="text-xs text-amber-700">Falta: {missing.join(", ")}</div>}
+                    {e.observation && <div className="text-xs font-medium text-red-700">⚠ Corregir: {e.observation}</div>}
                   </td>
                   <td>{e.category?.name ?? "—"}</td>
                   <td className="text-xs">{e.source === "WHATSAPP" ? "WhatsApp" : "Web"}</td>

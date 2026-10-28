@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
@@ -52,7 +53,14 @@ export default async function InformePage({ params }: { params: Promise<{ id: st
       {r.status === "OBSERVADO" && r.rejectReason && (
         <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
           <b>Se pidió modificar o arreglar:</b> {r.rejectReason}
-          {mine && <div className="mt-1 text-red-700">Corrige los gastos y vuelve a enviar. La cadena de aprobación parte de nuevo.</div>}
+          {mine && (
+            <div className="mt-1 text-red-700">
+              {r.expenses.some((e) => e.observation)
+                ? `Corrige ${r.expenses.filter((e) => e.observation).length === 1 ? "el gasto marcado" : "los gastos marcados"} en rojo y vuelve a enviar.`
+                : "Corrige los gastos y vuelve a enviar."}{" "}
+              La cadena de aprobación parte de nuevo.
+            </div>
+          )}
         </div>
       )}
 
@@ -80,7 +88,7 @@ export default async function InformePage({ params }: { params: Promise<{ id: st
       )}
       {r.erpRef && <div className="text-xs text-slate-500">Registrado en ERP: {r.erpRef} ({fecha(r.erpSyncedAt)})</div>}
 
-      {isApprover && r.status === "EN_APROBACION" && <DecisionForm kind="report" id={r.id} step={r.currentStep!} />}
+      {isApprover && r.status === "EN_APROBACION" && <DecisionForm kind="report" id={r.id} step={r.currentStep!} expenses={r.expenses} />}
       {isTreasury && r.status === "APROBADO" && <TreasuryReportPanel report={{ ...r, total }} />}
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -92,7 +100,8 @@ export default async function InformePage({ params }: { params: Promise<{ id: st
                 {r.expenses.map((e) => {
                   const missing = missingFields(e);
                   return (
-                    <tr key={e.id}>
+                    <Fragment key={e.id}>
+                    <tr className={e.observation ? "bg-red-50 [&>td]:border-b-0" : undefined}>
                       <td>{fecha(e.date)}</td>
                       <td>
                         {mine || e.receiptPath ? (
@@ -100,6 +109,7 @@ export default async function InformePage({ params }: { params: Promise<{ id: st
                         ) : (e.merchant)}
                         {e.rutProvider && <div className="text-xs text-slate-400">{e.rutProvider}</div>}
                         {missing.length > 0 && <div className="text-xs text-amber-700">Falta: {missing.join(", ")}</div>}
+                        {editable && !e.observation && <Link href={`/gastos/${e.id}`} className="block text-xs text-slate-500 underline hover:text-emerald-700">Corregir</Link>}
                       </td>
                       <td className="text-xs">{e.docType} {e.docNumber}</td>
                       <td>{e.category?.name ?? "—"}</td>
@@ -107,6 +117,17 @@ export default async function InformePage({ params }: { params: Promise<{ id: st
                       <td className="text-right tabular-nums">{clp(e.iva)}</td>
                       <td className="text-right tabular-nums">{clp(e.amount)}</td>
                     </tr>
+                    {e.observation && (
+                      <tr className="bg-red-50">
+                        <td colSpan={7}>
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <span className="text-sm text-red-700">⚠ Corregir este gasto: {e.observation}</span>
+                            {editable && <Link href={`/gastos/${e.id}`} className="btn-danger px-3 py-1 text-xs">Corregir</Link>}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                    </Fragment>
                   );
                 })}
                 <tr className="font-semibold"><td colSpan={6}>Total</td><td className="text-right tabular-nums">{clp(total)}</td></tr>

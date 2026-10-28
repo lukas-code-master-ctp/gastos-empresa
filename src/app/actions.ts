@@ -57,6 +57,7 @@ export async function updateExpense(id: string, formData: FormData) {
       categoryId: str(formData, "categoryId"),
       projectId: str(formData, "projectId"),
       note: str(formData, "note"),
+      observation: null, // al guardar se da por corregido
     },
   });
   revalidatePath("/gastos");
@@ -118,6 +119,7 @@ export async function submitReport(id: string) {
     where: { id },
     data: { status: "EN_APROBACION", currentStep: firstStep(user), rejectReason: null, submittedAt: new Date() },
   });
+  await db.expense.updateMany({ where: { reportId: id }, data: { observation: null } });
   await db.approval.create({ data: { reportId: id, step: "ENVIO", decision: "ENVIADO", userId: user.id } });
   revalidatePath(`/informes/${id}`);
 }
@@ -159,6 +161,12 @@ export async function decide(kind: "report" | "fund", id: string, formData: Form
 
   if (kind === "report") await db.report.update({ where: { id }, data });
   else await db.fund.update({ where: { id }, data });
+  // Al pedir modificar, se marcan los gastos que el aprobador indicó con el motivo
+  if (kind === "report" && decision === "MODIFICAR") {
+    const flagged = formData.getAll("flaggedIds").map(String);
+    await db.expense.updateMany({ where: { reportId: id }, data: { observation: null } });
+    if (flagged.length) await db.expense.updateMany({ where: { reportId: id, id: { in: flagged } }, data: { observation: comment } });
+  }
   await db.approval.create({
     data: { [kind === "report" ? "reportId" : "fundId"]: id, step, decision, comment, userId: user.id },
   });

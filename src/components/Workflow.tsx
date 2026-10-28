@@ -1,5 +1,5 @@
 import { decide } from "@/app/actions";
-import { fecha, STEPS, TREASURY } from "@/lib/format";
+import { clp, fecha, STEPS, TREASURY } from "@/lib/format";
 
 type ApprovalRow = { id: string; step: string; decision: string; comment: string | null; createdAt: Date; user: { name: string } };
 
@@ -59,7 +59,9 @@ export function History({ items }: { items: ApprovalRow[] }) {
   );
 }
 
-export function DecisionForm({ kind, id, step }: { kind: "report" | "fund"; id: string; step: string }) {
+type FlagExpense = { id: string; merchant: string | null; amount: number | null; date: Date | null };
+
+export function DecisionForm({ kind, id, step, expenses = [] }: { kind: "report" | "fund"; id: string; step: string; expenses?: FlagExpense[] }) {
   return (
     <form action={decide.bind(null, kind, id)} className="card space-y-3 border-amber-300">
       <h2 className="font-semibold">Te toca revisar: {STEPS[step]}</h2>
@@ -67,6 +69,22 @@ export function DecisionForm({ kind, id, step }: { kind: "report" | "fund"; id: 
         <label className="label">Motivo (obligatorio si pides modificar o rechazas)</label>
         <textarea name="comment" rows={2} className="input" placeholder="Ej: falta la boleta del almuerzo del 12/10" />
       </div>
+      {expenses.length > 0 && (
+        <div>
+          <label className="label">Gastos a corregir (opcional, solo para pedir modificar)</label>
+          <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200">
+            {expenses.map((e) => (
+              <li key={e.id}>
+                <label className="flex cursor-pointer items-center gap-3 px-3 py-2 text-sm hover:bg-amber-50">
+                  <input type="checkbox" name="flaggedIds" value={e.id} />
+                  <span className="flex-1">{e.merchant ?? "Sin comercio"} <span className="text-slate-400">· {fecha(e.date)}</span></span>
+                  <span className="tabular-nums">{clp(e.amount)}</span>
+                </label>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       <div className="flex gap-2">
         <button name="decision" value="APROBADO" className="btn">Aprobar</button>
         <button name="decision" value="MODIFICAR" className="btn-warning">Pedir modificar</button>
