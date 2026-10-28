@@ -14,6 +14,6 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  // El webhook de WhatsApp lo llama Meta y no puede mandar la clave.
-  matcher: ["/((?!api/whatsapp|_next/static|_next/image|icon.svg).*)"],
+  // El webhook de WhatsApp lo llama Meta y no puede mandar la clave; /api/health es el chequeo de estado.
+  matcher: ["/((?!api/whatsapp|api/health|_next/static|_next/image|icon.svg).*)"],
 };
