@@ -1,20 +1,147 @@
 @import "tailwindcss";
 
-body {
-  background: #f6f7f9;
-  color: #0f172a;
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+/*
+  Rindefi · paleta Ciruela y Mandarina.
+  Se redefinen las escalas que ya usa la app para que todas las pantallas tomen la marca:
+  slate → neutros cálidos con tinte ciruela, emerald → ciruela (color principal),
+  green → aprobado, amber → advertencia, red → rechazo, blue → información (lila).
+  mandarina es el acento: la bolita, el paso actual, lo que pide atención.
+*/
+@theme {
+  --font-sans: var(--font-geist), ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+  --font-display: var(--font-bricolage), var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, Menlo, monospace;
+
+  --color-paper: #FBF3EE;
+  --color-ink: #2B1028;
+
+  --color-slate-50: #FBF6F3;
+  --color-slate-100: #F5ECE7;
+  --color-slate-200: #EBDDD6;
+  --color-slate-300: #DCC8C0;
+  --color-slate-400: #9E8392;
+  --color-slate-500: #7D6072;
+  --color-slate-600: #654A5D;
+  --color-slate-700: #4F3549;
+  --color-slate-800: #3A2235;
+  --color-slate-900: #2B1028;
+  --color-slate-950: #1A0816;
+
+  --color-emerald-50: #FBF1F7;
+  --color-emerald-100: #F4DDEB;
+  --color-emerald-200: #E8BCD7;
+  --color-emerald-300: #D18FB8;
+  --color-emerald-400: #B0628F;
+  --color-emerald-500: #8E3B71;
+  --color-emerald-600: #74285D;
+  --color-emerald-700: #5B1A4F;
+  --color-emerald-800: #4A1340;
+  --color-emerald-900: #380D31;
+  --color-emerald-950: #240720;
+
+  --color-mandarina-50: #FFF3ED;
+  --color-mandarina-100: #FFE2D4;
+  --color-mandarina-200: #FFC4A8;
+  --color-mandarina-400: #FF7A45;
+  --color-mandarina-500: #FF5A1F;
+  --color-mandarina-600: #E8470D;
+  --color-mandarina-700: #B8360A;
+
+  --color-green-50: #F0F9F2;
+  --color-green-100: #DFF2E3;
+  --color-green-200: #BFE4C8;
+  --color-green-600: #2B8A4A;
+  --color-green-700: #1F7A3D;
+  --color-green-800: #17602F;
+  --color-green-900: #0F4321;
+
+  --color-amber-50: #FFF5EC;
+  --color-amber-100: #FFE6D3;
+  --color-amber-300: #FFC9A0;
+  --color-amber-400: #FFA567;
+  --color-amber-700: #94450B;
+  --color-amber-800: #7A3807;
+  --color-amber-950: #3D1A02;
+
+  --color-red-50: #FDF0F3;
+  --color-red-100: #FBDDE3;
+  --color-red-200: #F6C1CD;
+  --color-red-300: #EE9AAE;
+  --color-red-600: #C21A47;
+  --color-red-700: #A3133A;
+  --color-red-800: #870E30;
+
+  --color-blue-50: #F7F2FD;
+  --color-blue-100: #EEE4FB;
+  --color-blue-200: #DDCBF5;
+  --color-blue-300: #C6A9EE;
+  --color-blue-800: #4B2A86;
+  --color-blue-900: #371E66;
+
+  --ease-out-expo: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-feature-settings: "ss01";
+}
+
+::selection { background: var(--color-mandarina-200); color: var(--color-ink); }
+
 @layer components {
-  .card { @apply rounded-xl border border-slate-200 bg-white p-5 shadow-sm; }
-  .btn { @apply inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-700 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-800 disabled:opacity-50; }
-  .btn-secondary { @apply inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50; }
-  .btn-danger { @apply inline-flex items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700; }
-  .input { @apply w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600; }
-  .label { @apply mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500; }
+  .card {
+    @apply rounded-2xl border border-slate-200 bg-white p-5;
+    box-shadow: 0 1px 0 rgb(43 16 40 / 0.03), 0 12px 32px -24px rgb(43 16 40 / 0.35);
+  }
+  a.card { @apply block transition duration-300 ease-(--ease-out-expo) hover:-translate-y-0.5; }
+  a.card:hover { box-shadow: 0 1px 0 rgb(43 16 40 / 0.03), 0 20px 40px -24px rgb(43 16 40 / 0.45); }
+
+  .btn {
+    @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white transition duration-200 ease-(--ease-out-expo);
+    box-shadow: 0 8px 20px -10px rgb(91 26 79 / 0.7);
+  }
+  .btn:hover:not(:disabled) { @apply -translate-y-px bg-emerald-800; }
+  .btn:active:not(:disabled) { @apply translate-y-0 scale-[0.97]; }
+  .btn:disabled { @apply cursor-not-allowed opacity-45 shadow-none; }
+
+  .btn-secondary {
+    @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 transition duration-200 ease-(--ease-out-expo) hover:-translate-y-px hover:border-emerald-700 active:scale-[0.97];
+  }
+  .btn-danger {
+    @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-red-700 px-4 py-2.5 text-sm font-semibold text-white transition duration-200 hover:bg-red-800 active:scale-[0.97];
+  }
+  .btn:focus-visible, .btn-secondary:focus-visible, .btn-danger:focus-visible, a:focus-visible, button:focus-visible {
+    @apply outline-2 outline-offset-2 outline-mandarina-500;
+  }
+
+  .input {
+    @apply w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-ink transition placeholder:text-slate-400 focus:border-emerald-700 focus:outline-none focus:ring-4 focus:ring-mandarina-500/20;
+  }
+  .label { @apply mb-1.5 block font-mono text-[11px] font-medium uppercase tracking-[0.1em] text-slate-500; }
+
   .table { @apply w-full text-left text-sm; }
-  .table th { @apply border-b border-slate-200 px-3 py-2 text-xs font-medium uppercase tracking-wide text-slate-500; }
-  .table td { @apply border-b border-slate-100 px-3 py-2; }
-  .h1 { @apply text-2xl font-semibold tracking-tight; }
+  .table th { @apply border-b border-slate-200 bg-slate-50/60 px-4 py-3 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-slate-500; }
+  .table td { @apply border-b border-slate-100 px-4 py-3; }
+  .table tbody tr { @apply transition-colors; }
+
+  .h1 { @apply font-display text-3xl font-extrabold tracking-[-0.035em] text-balance md:text-4xl; }
+  .card h2 { @apply font-display text-lg font-bold tracking-[-0.02em]; }
+  .eyebrow { @apply font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-slate-500; }
+}
+
+/* Paso actual del flujo: anillo que late */
+@keyframes pulse-ring {
+  0% { box-shadow: 0 0 0 0 rgb(255 90 31 / 0.45); }
+  70% { box-shadow: 0 0 0 10px rgb(255 90 31 / 0); }
+  100% { box-shadow: 0 0 0 0 rgb(255 90 31 / 0); }
+}
+@keyframes grow { from { transform: scaleX(0); } }
+
+.pulse-ring { animation: pulse-ring 2s var(--ease-out-expo) infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 }

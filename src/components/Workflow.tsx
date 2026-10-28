@@ -1,6 +1,7 @@
 import { decide } from "@/app/actions";
 import { clp, fecha, ROLES, STEPS, TREASURY } from "@/lib/format";
 import { RejectButton } from "./RejectButton";
+import { Icon } from "./Icons";
 
 type ApprovalRow = { id: string; step: string; decision: string; comment: string | null; attachmentPath?: string | null; createdAt: Date; user: { name: string } };
 
@@ -15,17 +16,31 @@ export function ChainProgress({ status, currentStep, hasManager, approvals }: { 
   const done = (i: number) => ["APROBADO", "ACTIVO", "CERRADO", "DEVOLUCION_PENDIENTE"].includes(status) || (status === "EN_APROBACION" && i < idx) || (stopped && i < stopIdx);
   const items = [...steps.map((s) => STEPS[s]), "Tesorería"];
   return (
-    <ol className="flex flex-wrap items-center gap-2 text-xs">
+    <ol className="card flex flex-wrap items-start gap-y-4 px-5 py-4 sm:flex-nowrap" aria-label="Flujo de aprobación">
       {items.map((label, i) => {
         const isTreasury = i === steps.length;
         const ok = isTreasury ? ["ACTIVO", "CERRADO", "DEVOLUCION_PENDIENTE"].includes(status) : done(i);
         const current = isTreasury ? status === "APROBADO" : status === "EN_APROBACION" && i === idx;
+        const stoppedHere = i === stopIdx;
+        const state = ok ? "Listo" : current ? "En curso" : stoppedHere ? "Rechazado" : "Pendiente";
         return (
-          <li key={label} className="flex items-center gap-2">
-            <span className={`rounded-full px-3 py-1 font-medium ${ok ? "bg-emerald-600 text-white" : current ? "bg-amber-400 text-amber-950" : i === stopIdx ? "bg-red-100 text-red-700 ring-1 ring-red-300" : "bg-slate-100 text-slate-500"}`}>
-              {ok ? "✓ " : i === stopIdx ? "✕ " : ""}{label}
-            </span>
-            {i < items.length - 1 && <span className="text-slate-300">→</span>}
+          <li key={label} className="flex min-w-0 flex-1 basis-1/2 items-start gap-3 sm:basis-0" aria-current={current ? "step" : undefined}>
+            <div className="flex flex-col items-center">
+              <span
+                className={`grid size-8 shrink-0 place-items-center rounded-full border-2 transition-colors duration-500 ${
+                  ok ? "border-emerald-700 bg-emerald-700 text-white"
+                  : current ? "pulse-ring border-mandarina-500 bg-white text-mandarina-600"
+                  : stoppedHere ? "border-red-700 bg-red-50 text-red-700"
+                  : "border-slate-200 bg-white text-slate-400"}`}
+              >
+                {ok ? <Icon name="ok" className="size-4" /> : stoppedHere ? <Icon name="x" className="size-4" /> : <span className="font-mono text-[11px] font-semibold">{i + 1}</span>}
+              </span>
+            </div>
+            <div className="min-w-0 pt-0.5">
+              <div className={`text-sm leading-tight ${current ? "font-semibold text-ink" : ok ? "font-medium text-ink" : "text-slate-500"}`}>{label}</div>
+              <div className={`mt-0.5 font-mono text-[10px] uppercase tracking-[0.1em] ${current ? "text-mandarina-700" : stoppedHere ? "text-red-700" : "text-slate-400"}`}>{state}</div>
+            </div>
+            {i < items.length - 1 && <span aria-hidden="true" className={`mt-4 hidden h-0.5 flex-1 rounded-full sm:block ${ok ? "bg-emerald-700" : "bg-slate-200"}`} />}
           </li>
         );
       })}
@@ -59,12 +74,12 @@ export function History({ items }: { items: ApprovalRow[] }) {
       ) : (
         <ul className="mt-3 space-y-3 text-sm">
           {items.map((a) => (
-            <li key={a.id} className="border-l-2 border-slate-200 pl-3">
+            <li key={a.id} className="relative border-l-2 border-slate-200 pl-4 before:absolute before:-left-[5px] before:top-1.5 before:size-2 before:rounded-full before:bg-mandarina-500">
               <div><span className="font-medium">{a.user.name}</span> · {text(a)}</div>
               {a.decision === "RECHAZADO" && a.comment && <div className="text-red-700">Motivo: {a.comment}</div>}
               {a.decision === "GASTO_RECHAZADO" && <div className="text-red-700">{a.comment}</div>}
               {a.decision === "EDITADO" && <div className="text-slate-600">{a.comment}</div>}
-              {a.attachmentPath && <a href={`/api/files/${a.attachmentPath}`} target="_blank" className="text-emerald-700 hover:underline">📎 Ver comprobante</a>}
+              {a.attachmentPath && <a href={`/api/files/${a.attachmentPath}`} target="_blank" className="inline-flex items-center gap-1 text-emerald-700 hover:underline"><Icon name="clip" className="size-3.5" /> Ver comprobante</a>}
               <div className="text-xs text-slate-400">{fecha(a.createdAt)}</div>
             </li>
           ))}

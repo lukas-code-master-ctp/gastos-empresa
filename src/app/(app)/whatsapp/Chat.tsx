@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Icon } from "@/components/Icons";
 
 type Msg = { from: "me" | "bot"; text: string };
 
@@ -27,7 +28,7 @@ export default function Chat() {
 
   return (
     <div className="overflow-hidden rounded-xl border border-slate-200 bg-[#efeae2]">
-      <div className="bg-emerald-800 px-4 py-3 text-sm font-medium text-white">Rendiciones · bot</div>
+      <div className="bg-emerald-800 px-4 py-3 text-sm font-medium text-white">Rindefi · bot</div>
       <div className="flex h-[420px] flex-col gap-2 overflow-y-auto p-4">
         {msgs.length === 0 && <div className="m-auto text-sm text-slate-500">Envía una foto de una boleta para empezar.</div>}
         {msgs.map((m, i) => (
@@ -44,8 +45,8 @@ export default function Chat() {
           setText("");
         }}
       >
-        <label className="btn-secondary cursor-pointer px-3">
-          📎
+        <label className="btn-secondary cursor-pointer px-3" aria-label="Adjuntar boleta">
+          <Icon name="clip" />
           <input type="file" accept="image/*,application/pdf" className="hidden" disabled={busy} onChange={(e) => e.target.files?.[0] && send({ file: e.target.files[0] })} />
         </label>
         <input value={text} onChange={(e) => setText(e.target.value)} className="input" placeholder="Escribe un mensaje" disabled={busy} />

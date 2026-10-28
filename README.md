@@ -1,6 +1,6 @@
-# Rendiciones de gastos
+# Rindefi
 
-Web app para que las empresas rindan gastos de **reembolsos**, **fondos fijos** y **caja chica**, siguiendo el flujo del diagrama `Gastos.jpg`.
+Rindefi es la web app para que las empresas rindan gastos de **reembolsos**, **fondos fijos** y **caja chica**, siguiendo el flujo del diagrama `Gastos.jpg`.
 
 ## Qué hace (MVP)
 
@@ -28,6 +28,10 @@ npm run dev                 # http://localhost:3000
 ```
 
 En `/login` eliges un usuario de demo (Ana y Bruno son empleados con jefe Jorge; Pedro es contabilidad, Carla controller, Tamara tesorería).
+
+## Diseño
+
+Paleta Ciruela y Mandarina, tipografías Bricolage Grotesque (títulos), Geist (texto) y Geist Mono (etiquetas), animaciones con `motion`. Los colores viven en `src/app/globals.css` (las escalas de Tailwind están redefinidas con la marca) y el logo en `src/components/Brand.tsx` e `src/app/icon.svg`.
 
 ## Stack
 

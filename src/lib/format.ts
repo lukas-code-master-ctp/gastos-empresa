@@ -35,9 +35,9 @@ export const STATUS: Record<string, { label: string; cls: string }> = {
   EN_APROBACION: { label: "En aprobación", cls: "bg-amber-100 text-amber-800" },
   RECHAZADO: { label: "Rechazado", cls: "bg-red-100 text-red-700" },
   APROBADO: { label: "Aprobado · en tesorería", cls: "bg-blue-100 text-blue-800" },
-  ACTIVO: { label: "Activo", cls: "bg-emerald-100 text-emerald-800" },
-  CERRADO: { label: "Cerrado", cls: "bg-emerald-100 text-emerald-800" },
-  DEVOLUCION_PENDIENTE: { label: "Devolución pendiente", cls: "bg-blue-100 text-blue-800" },
+  ACTIVO: { label: "Activo", cls: "bg-green-100 text-green-800" },
+  CERRADO: { label: "Cerrado", cls: "bg-green-100 text-green-800" },
+  DEVOLUCION_PENDIENTE: { label: "Devolución pendiente", cls: "bg-mandarina-100 text-mandarina-700" },
 };
 
 export const TREASURY: Record<string, string> = {
