@@ -24,7 +24,7 @@ export default async function FondosPage() {
                 <td><Link href={`/fondos/${f.id}`} className="font-medium text-emerald-700 hover:underline">{f.reason}</Link></td>
                 <td>{fecha(f.createdAt)}</td>
                 <td className="text-right tabular-nums">{clp(f.amount)}</td>
-                <td className="text-right tabular-nums">{f.status === "ACTIVO" ? clp(f.balance) : "—"}</td>
+                <td className="text-right tabular-nums">{["ACTIVO", "DEVOLUCION_PENDIENTE"].includes(f.status) ? clp(f.balance) : "—"}</td>
                 <td><StatusBadge status={f.status} />{f.currentStep && f.status === "EN_APROBACION" && <div className="text-xs text-slate-500">{STEPS[f.currentStep]}</div>}</td>
               </tr>
             ))}

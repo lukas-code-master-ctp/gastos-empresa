@@ -1,5 +1,5 @@
 import { decide } from "@/app/actions";
-import { fecha, ROLES, STEPS, TREASURY } from "@/lib/format";
+import { clp, fecha, ROLES, STEPS, TREASURY } from "@/lib/format";
 import { RejectButton } from "./RejectButton";
 
 type ApprovalRow = { id: string; step: string; decision: string; comment: string | null; attachmentPath?: string | null; createdAt: Date; user: { name: string } };
@@ -12,13 +12,13 @@ export function ChainProgress({ status, currentStep, hasManager, approvals }: { 
   const stop = stopped ? approvals.findLast((a) => a.decision === "RECHAZADO") : undefined;
   const stopIdx = stop ? steps.indexOf(stop.step) : -1;
   const idx = currentStep ? steps.indexOf(currentStep) : status === "EN_APROBACION" ? 0 : -1;
-  const done = (i: number) => ["APROBADO", "ACTIVO", "CERRADO"].includes(status) || (status === "EN_APROBACION" && i < idx) || (stopped && i < stopIdx);
+  const done = (i: number) => ["APROBADO", "ACTIVO", "CERRADO", "DEVOLUCION_PENDIENTE"].includes(status) || (status === "EN_APROBACION" && i < idx) || (stopped && i < stopIdx);
   const items = [...steps.map((s) => STEPS[s]), "Tesorería"];
   return (
     <ol className="flex flex-wrap items-center gap-2 text-xs">
       {items.map((label, i) => {
         const isTreasury = i === steps.length;
-        const ok = isTreasury ? ["ACTIVO", "CERRADO"].includes(status) : done(i);
+        const ok = isTreasury ? ["ACTIVO", "CERRADO", "DEVOLUCION_PENDIENTE"].includes(status) : done(i);
         const current = isTreasury ? status === "APROBADO" : status === "EN_APROBACION" && i === idx;
         return (
           <li key={label} className="flex items-center gap-2">
@@ -33,6 +33,15 @@ export function ChainProgress({ status, currentStep, hasManager, approvals }: { 
   );
 }
 
+// Los movimientos de tesorería se guardan como "ACCION" o "ACCION:monto"
+function treasuryText(comment: string) {
+  if (comment === "DEVOLUCION_RECIBIDA") return "Confirmó devolución recibida: se cerró el fondo";
+  if (comment.startsWith("CIERRE_CAJA saldo ")) return `Cerró la caja chica (saldo ${clp(Number(comment.slice(18)))})`;
+  const [key, amount] = comment.split(":");
+  const label = TREASURY[key] ?? `Tesorería: ${comment}`;
+  return amount ? `${label} (${clp(Number(amount))})` : label;
+}
+
 export function History({ items }: { items: ApprovalRow[] }) {
   const text = (a: ApprovalRow) =>
     a.decision === "ENVIADO" ? "Envió a aprobación"
@@ -41,7 +50,7 @@ export function History({ items }: { items: ApprovalRow[] }) {
     : a.decision === "GASTO_RECHAZADO" ? `Rechazó un gasto (${STEPS[a.step]})`
     : a.decision === "GASTO_RESTAURADO" ? `Deshizo el rechazo de ${a.comment}`
     : a.decision === "EDITADO" ? `Editó un gasto (${ROLES[a.step] ?? a.step})`
-    : TREASURY[a.comment ?? ""] ?? (a.comment === "DEVOLUCION_RECIBIDA" ? "Confirmó devolución recibida: se cerró el fondo" : `Tesorería: ${a.comment}`);
+    : treasuryText(a.comment ?? "");
   return (
     <div className="card">
       <h2 className="font-semibold">Historial</h2>

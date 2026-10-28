@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
-import { closeCajaChica, deliverFund } from "@/app/actions";
+import { closeCajaChica, confirmCajaReturn, deliverFund } from "@/app/actions";
+import { ConfirmSubmit } from "@/components/ConfirmSubmit";
 import { ReceiptInput } from "@/components/Treasury";
 import { clp, fecha, FUND_TYPES } from "@/lib/format";
 import { canApprove, reportTotal } from "@/lib/workflow";
@@ -20,6 +21,7 @@ export default async function FondoPage({ params }: { params: Promise<{ id: stri
   const mine = f.userId === user.id;
   const isApprover = canApprove(user, f.currentStep, f.user);
   const isTreasury = ["TESORERIA", "ADMIN"].includes(user.role);
+  const pendingReports = f.reports.some((r) => ["EN_APROBACION", "APROBADO"].includes(r.status));
 
   return (
     <div className="space-y-6">
@@ -32,7 +34,7 @@ export default async function FondoPage({ params }: { params: Promise<{ id: stri
         <div className="text-right">
           <StatusBadge status={f.status} />
           <div className="mt-2 text-2xl font-semibold tabular-nums">{clp(f.amount)}</div>
-          {f.status === "ACTIVO" && f.type === "CAJA_CHICA" && <div className="text-sm text-slate-500">Saldo {clp(f.balance)}</div>}
+          {["ACTIVO", "DEVOLUCION_PENDIENTE"].includes(f.status) && f.type === "CAJA_CHICA" && <div className="text-sm text-slate-500">Saldo {clp(f.balance)}</div>}
         </div>
       </div>
       <ChainProgress status={f.status} currentStep={f.currentStep} hasManager={Boolean(f.user.managerId)} approvals={f.approvals} />
@@ -53,10 +55,30 @@ export default async function FondoPage({ params }: { params: Promise<{ id: stri
         </form>
       )}
       {isTreasury && f.status === "ACTIVO" && f.type === "CAJA_CHICA" && (
-        <form action={closeCajaChica.bind(null, f.id)} className="flex justify-end">
-          <button className="btn-secondary">Cerrar caja chica (saldo {clp(f.balance)})</button>
+        <form action={closeCajaChica.bind(null, f.id)} className="card flex flex-wrap items-center justify-between gap-3">
+          <span className="text-sm text-slate-600">
+            {pendingReports ? "Hay rendiciones de esta caja en curso; ciérralas antes de cerrar la caja."
+              : f.balance > 0 ? `Al cerrar se pedirá a ${f.user.name} devolver el saldo de ${clp(f.balance)}.`
+              : "La caja no tiene saldo: se cerrará de inmediato."}
+          </span>
+          {!pendingReports && (
+            <ConfirmSubmit className="btn-secondary" message={f.balance > 0 ? `¿Cerrar la caja chica y pedir a ${f.user.name} devolver ${clp(f.balance)}?` : "¿Cerrar la caja chica?"}>
+              Cerrar caja chica
+            </ConfirmSubmit>
+          )}
         </form>
       )}
+      {f.status === "DEVOLUCION_PENDIENTE" && (isTreasury ? (
+        <form action={confirmCajaReturn.bind(null, f.id)} className="card space-y-3 border-blue-300">
+          <p className="text-sm">Caja chica cerrada. Se pidió a {f.user.name} devolver {clp(f.balance)}. Confirma cuando la recibas para cerrarla.</p>
+          <ReceiptInput />
+          <button className="btn">Devolución recibida</button>
+        </form>
+      ) : (
+        <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
+          Tesorería cerró esta caja chica. {mine ? "Debes" : `${f.user.name} debe`} devolver el saldo de <b>{clp(f.balance)}</b>.
+        </div>
+      ))}
 
       {mine && f.status === "ACTIVO" && (
         <Link href="/informes/nuevo" className="btn">Rendir gastos de este fondo</Link>

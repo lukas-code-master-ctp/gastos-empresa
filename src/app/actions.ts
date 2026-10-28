@@ -356,11 +356,31 @@ export async function confirmReturn(id: string, formData?: FormData) {
   revalidatePath("/tesoreria");
 }
 
+// Cierre de caja chica: si queda saldo se pide devolución y se cierra al recibirla
 export async function closeCajaChica(id: string) {
   const user = await requireTreasury();
-  const f = await db.fund.findUniqueOrThrow({ where: { id } });
+  const f = await db.fund.findUniqueOrThrow({ where: { id }, include: { reports: true } });
   if (f.type !== "CAJA_CHICA" || f.status !== "ACTIVO") throw new Error("No aplica");
-  await db.fund.update({ where: { id }, data: { status: "CERRADO", closedAt: new Date() } });
-  await db.approval.create({ data: { fundId: id, step: "TESORERIA", decision: "TESORERIA", comment: `CIERRE_CAJA saldo ${f.balance}`, userId: user.id } });
+  if (f.reports.some((r) => ["EN_APROBACION", "APROBADO"].includes(r.status)))
+    throw new Error("Hay rendiciones de esta caja en curso. Ciérralas antes de cerrar la caja.");
+  if (f.balance > 0) {
+    await db.fund.update({ where: { id }, data: { status: "DEVOLUCION_PENDIENTE" } });
+    await db.approval.create({ data: { fundId: id, step: "TESORERIA", decision: "TESORERIA", comment: `DEVOLUCION_CAJA_SOLICITADA:${f.balance}`, userId: user.id } });
+  } else {
+    await db.fund.update({ where: { id }, data: { status: "CERRADO", closedAt: new Date() } });
+    await db.approval.create({ data: { fundId: id, step: "TESORERIA", decision: "TESORERIA", comment: "CIERRE_CAJA", userId: user.id } });
+  }
+  revalidatePath(`/fondos/${id}`);
+  revalidatePath("/tesoreria");
+}
+
+export async function confirmCajaReturn(id: string, formData?: FormData) {
+  const user = await requireTreasury();
+  const f = await db.fund.findUniqueOrThrow({ where: { id } });
+  if (f.status !== "DEVOLUCION_PENDIENTE") throw new Error("Nada que confirmar");
+  const att = await treasuryAttachment(formData);
+  await db.fund.update({ where: { id }, data: { status: "CERRADO", balance: 0, closedAt: new Date() } });
+  await db.approval.create({ data: { fundId: id, step: "TESORERIA", decision: "TESORERIA", comment: `DEVOLUCION_CAJA_RECIBIDA:${f.balance}`, userId: user.id, ...att } });
+  revalidatePath(`/fondos/${id}`);
   revalidatePath("/tesoreria");
 }

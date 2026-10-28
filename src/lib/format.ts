@@ -37,6 +37,7 @@ export const STATUS: Record<string, { label: string; cls: string }> = {
   APROBADO: { label: "Aprobado · en tesorería", cls: "bg-blue-100 text-blue-800" },
   ACTIVO: { label: "Activo", cls: "bg-emerald-100 text-emerald-800" },
   CERRADO: { label: "Cerrado", cls: "bg-emerald-100 text-emerald-800" },
+  DEVOLUCION_PENDIENTE: { label: "Devolución pendiente", cls: "bg-blue-100 text-blue-800" },
 };
 
 export const TREASURY: Record<string, string> = {
@@ -46,6 +47,9 @@ export const TREASURY: Record<string, string> = {
   DEVOLUCION_SOLICITADA: "Sobró: se pidió devolución",
   DEPOSITO_DIFERENCIA: "Faltó: se depositó la diferencia",
   ENTREGA_FONDO: "Se entregó el fondo",
+  DEVOLUCION_CAJA_SOLICITADA: "Cerró la caja chica y pidió devolver el saldo",
+  DEVOLUCION_CAJA_RECIBIDA: "Recibió la devolución del saldo: caja chica cerrada",
+  CIERRE_CAJA: "Cerró la caja chica (sin saldo)",
 };
 
 export const DOC_TYPES = ["BOLETA", "FACTURA", "OTRO"];
