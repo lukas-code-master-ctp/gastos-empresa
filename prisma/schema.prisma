@@ -1,0 +1,151 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+// SQLite para desarrollo. En producción cambiar a "postgresql".
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Company {
+  id         String     @id @default(cuid())
+  name       String
+  rut        String
+  users      User[]
+  projects   Project[]
+  categories Category[]
+  createdAt  DateTime   @default(now())
+}
+
+model User {
+  id        String    @id @default(cuid())
+  name      String
+  email     String    @unique
+  phone     String?   @unique // número WhatsApp en formato 569XXXXXXXX
+  // EMPLEADO | JEFE | CONTABILIDAD | CONTROLLER | TESORERIA | ADMIN
+  role      String    @default("EMPLEADO")
+  bankInfo  String?
+  companyId String
+  company   Company   @relation(fields: [companyId], references: [id])
+  managerId String?
+  manager   User?     @relation("Manager", fields: [managerId], references: [id])
+  reports   User[]    @relation("Manager")
+  expenses  Expense[]
+  informes  Report[]
+  funds     Fund[]
+  approvals Approval[]
+  createdAt DateTime  @default(now())
+}
+
+model Project {
+  id        String    @id @default(cuid())
+  name      String
+  code      String
+  companyId String
+  company   Company   @relation(fields: [companyId], references: [id])
+  expenses  Expense[]
+}
+
+model Category {
+  id         String    @id @default(cuid())
+  name       String
+  erpAccount String? // cuenta contable para el ERP
+  companyId  String
+  company    Company   @relation(fields: [companyId], references: [id])
+  expenses   Expense[]
+}
+
+model Expense {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id])
+  source      String    @default("WEB") // WEB | WHATSAPP
+  receiptPath String?
+  receiptMime String?
+  merchant    String?
+  rutProvider String?
+  docType     String? // BOLETA | FACTURA | OTRO
+  docNumber   String?
+  date        DateTime?
+  amount      Int? // total CLP (con IVA)
+  iva         Int?
+  categoryId  String?
+  category    Category? @relation(fields: [categoryId], references: [id])
+  projectId   String?
+  project     Project?  @relation(fields: [projectId], references: [id])
+  note        String?
+  ocrRaw      String? // JSON devuelto por la IA
+  reportId    String?
+  report      Report?   @relation(fields: [reportId], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+// Solicitud de fondo fijo o caja chica
+model Fund {
+  id           String     @id @default(cuid())
+  type         String // FONDO_FIJO | CAJA_CHICA
+  userId       String
+  user         User       @relation(fields: [userId], references: [id])
+  amount       Int
+  balance      Int        @default(0) // saldo disponible (caja chica)
+  reason       String
+  // EN_APROBACION | OBSERVADO | APROBADO | ACTIVO | CERRADO
+  status       String     @default("EN_APROBACION")
+  currentStep  String?    @default("JEFE")
+  rejectReason String?
+  reports      Report[]
+  approvals    Approval[]
+  createdAt    DateTime   @default(now())
+  closedAt     DateTime?
+}
+
+// Informe de rendición
+model Report {
+  id               String     @id @default(cuid())
+  type             String // REEMBOLSO | FONDO_FIJO | CAJA_CHICA
+  title            String
+  userId           String
+  user             User       @relation(fields: [userId], references: [id])
+  fundId           String?
+  fund             Fund?      @relation(fields: [fundId], references: [id])
+  // BORRADOR | EN_APROBACION | OBSERVADO | APROBADO | CERRADO
+  status           String     @default("BORRADOR")
+  currentStep      String? // JEFE | CONTABILIDAD | CONTROLLER
+  rejectReason     String?
+  // Resultado de tesorería
+  treasuryAction   String? // DEPOSITO_REEMBOLSO | DESCUENTO_CAJA | CIERRE_CUADRADO | DEVOLUCION_SOLICITADA | DEPOSITO_DIFERENCIA
+  treasuryAmount   Int?
+  treasuryNote     String?
+  erpRef           String?
+  erpSyncedAt      DateTime?
+  expenses         Expense[]
+  approvals        Approval[]
+  submittedAt      DateTime?
+  closedAt         DateTime?
+  createdAt        DateTime   @default(now())
+}
+
+model Approval {
+  id        String   @id @default(cuid())
+  reportId  String?
+  report    Report?  @relation(fields: [reportId], references: [id])
+  fundId    String?
+  fund      Fund?    @relation(fields: [fundId], references: [id])
+  step      String // JEFE | CONTABILIDAD | CONTROLLER | TESORERIA | ENVIO
+  decision  String // ENVIADO | APROBADO | RECHAZADO | TESORERIA
+  comment   String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+// Estado de la conversación de WhatsApp (para pedir datos faltantes)
+model WhatsappSession {
+  id           String   @id @default(cuid())
+  phone        String   @unique
+  expenseId    String?
+  pendingField String?
+  updatedAt    DateTime @updatedAt
+}
