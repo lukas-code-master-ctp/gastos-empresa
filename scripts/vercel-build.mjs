@@ -1,18 +1,23 @@
-// Build de producción en Vercel: misma schema que en local, pero con Postgres (Neon).
+// Build de producción en Vercel: misma schema que en local, pero con Postgres (Supabase o Neon).
 // 1) genera prisma/schema.prod.prisma, 2) sincroniza las tablas, 3) carga datos de demo
 // solo si la base está vacía, 4) next build.
 import { execSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 
-if (!process.env.DATABASE_URL?.startsWith("postgres")) {
-  console.error("Falta DATABASE_URL de Postgres. En Vercel: Storage → Create Database → Neon, y conéctala al proyecto.");
+// Variables según de dónde venga la base: Supabase de Vercel Marketplace (POSTGRES_*),
+// Neon (DATABASE_URL*) o una URL puesta a mano en DATABASE_URL.
+const pick = (...keys) => keys.find((k) => process.env[k]?.startsWith("postgres"));
+const urlVar = pick("POSTGRES_PRISMA_URL", "DATABASE_URL");
+const directVar = pick("POSTGRES_URL_NON_POOLING", "DATABASE_URL_UNPOOLED", "DIRECT_URL");
+if (!urlVar) {
+  console.error("Falta la base Postgres. En Vercel: Storage → Create Database → Supabase, y conéctala al proyecto.");
   process.exit(1);
 }
+console.log(`Base: ${urlVar}${directVar ? ` (directa: ${directVar})` : ""}`);
 
-const direct = process.env.DATABASE_URL_UNPOOLED ? '\n  directUrl = env("DATABASE_URL_UNPOOLED")' : "";
 const schema = readFileSync("prisma/schema.prisma", "utf8").replace(
   /provider = "sqlite"\n  url      = env\("DATABASE_URL"\)/,
-  `provider = "postgresql"\n  url      = env("DATABASE_URL")${direct}`,
+  `provider = "postgresql"\n  url      = env("${urlVar}")${directVar ? `\n  directUrl = env("${directVar}")` : ""}`,
 );
 if (!schema.includes('provider = "postgresql"')) throw new Error("No se pudo pasar la schema a Postgres");
 writeFileSync("prisma/schema.prod.prisma", schema);

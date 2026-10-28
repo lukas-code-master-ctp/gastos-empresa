@@ -37,7 +37,7 @@ Variables en Vercel (Settings → Environment Variables):
 
 | Variable | Para qué |
 |---|---|
-| `DATABASE_URL`, `DATABASE_URL_UNPOOLED` | Postgres de Neon (las crea la integración al conectar la base) |
+| `POSTGRES_PRISMA_URL`, `POSTGRES_URL_NON_POOLING` | Postgres de Supabase (las crea la integración al conectar la base; también sirve `DATABASE_URL` a mano o Neon) |
 | `BLOB_READ_WRITE_TOKEN` | Vercel Blob privado para boletas y comprobantes (lo crea el store de Blob) |
 | `APP_PASSWORD` | Clave que pide el navegador antes de entrar, mientras el login sea de demo |
 | `ANTHROPIC_API_KEY` | Lectura de boletas con IA (opcional) |
