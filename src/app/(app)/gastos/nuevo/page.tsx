@@ -8,7 +8,7 @@ export default function NuevoGasto() {
       <h1 className="h1">Subir boleta</h1>
       {!ocrEnabled() && (
         <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
-          La lectura con IA está desactivada (falta ANTHROPIC_API_KEY). La boleta se guardará y completarás los datos a mano.
+          La lectura con IA está desactivada (falta OPENROUTER_API_KEY). La boleta se guardará y completarás los datos a mano.
         </p>
       )}
       <Uploader />

@@ -22,7 +22,7 @@ Roles: Empleado, Jefe directo, Contabilidad, Controller, Tesorería, Admin.
 
 ```bash
 npm install
-cp .env.example .env        # agrega ANTHROPIC_API_KEY para activar la lectura con IA
+cp .env.example .env        # agrega OPENROUTER_API_KEY para activar la lectura con IA
 npm run setup               # crea la base SQLite y carga datos de demo
 npm run dev                 # http://localhost:3000
 ```
@@ -40,7 +40,8 @@ Variables en Vercel (Settings → Environment Variables):
 | `POSTGRES_PRISMA_URL`, `POSTGRES_URL_NON_POOLING` | Postgres de Supabase (las crea la integración al conectar la base; también sirve `DATABASE_URL` a mano o Neon) |
 | `BLOB_READ_WRITE_TOKEN` | Vercel Blob privado para boletas y comprobantes (lo crea el store de Blob) |
 | `APP_PASSWORD` | Clave que pide el navegador antes de entrar, mientras el login sea de demo |
-| `ANTHROPIC_API_KEY` | Lectura de boletas con IA (opcional) |
+| `OPENROUTER_API_KEY` | Lectura de boletas con IA vía OpenRouter (opcional) |
+| `OPENROUTER_MODEL` | Modelo de visión a usar (opcional, por defecto `google/gemini-3.1-flash-lite`; varios separados por coma hacen de respaldo) |
 
 ## Diseño
 
@@ -48,7 +49,7 @@ Paleta Ciruela y Mandarina, tipografías Bricolage Grotesque (títulos), Geist (
 
 ## Stack
 
-Next.js 15 (App Router, server actions) · TypeScript · Tailwind · Prisma (SQLite en dev, Postgres en prod) · Claude (`claude-opus-5-5`) para OCR con salida estructurada.
+Next.js 15 (App Router, server actions) · TypeScript · Tailwind · Prisma (SQLite en dev, Postgres en prod) · OCR con modelos de visión vía OpenRouter (por defecto `google/gemini-3.1-flash-lite`) y salida JSON estructurada.
 
 ## Pendiente para producción
 

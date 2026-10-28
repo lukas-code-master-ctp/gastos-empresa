@@ -13,7 +13,6 @@
     "vercel-build": "node scripts/vercel-build.mjs"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^1.3.0",
     "@prisma/client": "^6.19.3",
     "@vercel/blob": "^2.8.2",
     "motion": "^14.6.0",
