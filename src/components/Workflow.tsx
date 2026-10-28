@@ -2,7 +2,7 @@ import { decide } from "@/app/actions";
 import { fecha, ROLES, STEPS, TREASURY } from "@/lib/format";
 import { RejectButton } from "./RejectButton";
 
-type ApprovalRow = { id: string; step: string; decision: string; comment: string | null; createdAt: Date; user: { name: string } };
+type ApprovalRow = { id: string; step: string; decision: string; comment: string | null; attachmentPath?: string | null; createdAt: Date; user: { name: string } };
 
 // Barra de progreso de la cadena: Envío → Jefe directo → Contabilidad → Controller → Tesorería
 export function ChainProgress({ status, currentStep, hasManager, approvals }: { status: string; currentStep: string | null; hasManager: boolean; approvals: { step: string; decision: string }[] }) {
@@ -55,6 +55,7 @@ export function History({ items }: { items: ApprovalRow[] }) {
               {a.decision === "RECHAZADO" && a.comment && <div className="text-red-700">Motivo: {a.comment}</div>}
               {a.decision === "GASTO_RECHAZADO" && <div className="text-red-700">{a.comment}</div>}
               {a.decision === "EDITADO" && <div className="text-slate-600">{a.comment}</div>}
+              {a.attachmentPath && <a href={`/api/files/${a.attachmentPath}`} target="_blank" className="text-emerald-700 hover:underline">📎 Ver comprobante</a>}
               <div className="text-xs text-slate-400">{fecha(a.createdAt)}</div>
             </li>
           ))}

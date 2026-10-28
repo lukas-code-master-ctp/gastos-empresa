@@ -13,11 +13,22 @@ export function treasuryPreview(r: R) {
   return { text: `Faltó: depositar la diferencia a ${r.user.name}`, amount: -diff };
 }
 
+// Adjunto opcional del comprobante (transferencia, depósito o devolución)
+export function ReceiptInput() {
+  return (
+    <label className="block text-sm">
+      <span className="label">Comprobante (opcional)</span>
+      <input type="file" name="receipt" accept="image/*,application/pdf" className="input file:mr-3 file:rounded file:border-0 file:bg-slate-100 file:px-3 file:py-1 file:text-sm" />
+    </label>
+  );
+}
+
 export function TreasuryReportPanel({ report }: { report: R }) {
   if (report.treasuryAction === "DEVOLUCION_SOLICITADA")
     return (
-      <form action={confirmReturn.bind(null, report.id)} className="card flex flex-wrap items-center justify-between gap-3 border-blue-300">
-        <span className="text-sm">Se pidió devolución a {report.user.name}. Confirma cuando la recibas para cerrar el fondo.</span>
+      <form action={confirmReturn.bind(null, report.id)} className="card space-y-3 border-blue-300">
+        <p className="text-sm">Se pidió devolución a {report.user.name}. Confirma cuando la recibas para cerrar el fondo.</p>
+        <ReceiptInput />
         <button className="btn">Devolución recibida</button>
       </form>
     );
@@ -28,6 +39,7 @@ export function TreasuryReportPanel({ report }: { report: R }) {
       <p className="text-sm">{p.text}{p.amount ? `: ${clp(p.amount)}` : ""}</p>
       {report.user.bankInfo && <p className="text-xs text-slate-500">Datos bancarios: {report.user.bankInfo}</p>}
       <input name="note" className="input" placeholder="Nota (ej: N° de transferencia)" />
+      <ReceiptInput />
       <button className="btn">Confirmar</button>
     </form>
   );

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { closeCajaChica, deliverFund } from "@/app/actions";
+import { ReceiptInput } from "@/components/Treasury";
 import { clp, fecha, FUND_TYPES } from "@/lib/format";
 import { canApprove, reportTotal } from "@/lib/workflow";
 import { StatusBadge } from "@/components/Badge";
@@ -45,8 +46,9 @@ export default async function FondoPage({ params }: { params: Promise<{ id: stri
       {isApprover && f.status === "EN_APROBACION" && <DecisionForm kind="fund" id={f.id} step={f.currentStep!} />}
 
       {isTreasury && f.status === "APROBADO" && (
-        <form action={deliverFund.bind(null, f.id)} className="card flex flex-wrap items-center justify-between gap-3 border-blue-300">
-          <span className="text-sm">Tesorería: entregar {clp(f.amount)} a {f.user.name}{f.user.bankInfo ? ` (${f.user.bankInfo})` : ""}</span>
+        <form action={deliverFund.bind(null, f.id)} className="card space-y-3 border-blue-300">
+          <p className="text-sm">Tesorería: entregar {clp(f.amount)} a {f.user.name}{f.user.bankInfo ? ` (${f.user.bankInfo})` : ""}</p>
+          <ReceiptInput />
           <button className="btn">Marcar como entregado</button>
         </form>
       )}

@@ -141,6 +141,9 @@ model Approval {
   step      String // JEFE | CONTABILIDAD | CONTROLLER | TESORERIA | ENVIO
   decision  String // ENVIADO | APROBADO | RECHAZADO | GASTO_RECHAZADO | EDITADO | TESORERIA
   comment   String?
+  // Comprobante opcional que adjunta tesorería (transferencia, depósito, devolución)
+  attachmentPath String?
+  attachmentMime String?
   userId    String
   user      User     @relation(fields: [userId], references: [id])
   createdAt DateTime @default(now())

@@ -7,6 +7,7 @@ import { clearSession, requireUser, setSession } from "@/lib/auth";
 import { canApprove, expenseEditMode, firstStep, missingFields, nextStep, reportTotal } from "@/lib/workflow";
 import { clp, fecha } from "@/lib/format";
 import { registerInErp } from "@/lib/erp";
+import { saveFile } from "@/lib/storage";
 
 const str = (f: FormData, k: string) => {
   const v = f.get(k);
@@ -278,12 +279,23 @@ async function requireTreasury() {
   return user;
 }
 
-export async function deliverFund(id: string) {
+// Comprobante opcional de tesorería (imagen o PDF)
+async function treasuryAttachment(formData?: FormData) {
+  const file = formData?.get("receipt");
+  if (!(file instanceof File) || file.size === 0) return {};
+  if (file.size > 10 * 1024 * 1024) throw new Error("El comprobante supera 10 MB");
+  if (!file.type.startsWith("image/") && file.type !== "application/pdf") throw new Error("El comprobante debe ser imagen o PDF");
+  const attachmentPath = await saveFile(Buffer.from(await file.arrayBuffer()), file.type);
+  return { attachmentPath, attachmentMime: file.type };
+}
+
+export async function deliverFund(id: string, formData?: FormData) {
   const user = await requireTreasury();
   const f = await db.fund.findUniqueOrThrow({ where: { id } });
   if (f.status !== "APROBADO") throw new Error("El fondo no está aprobado");
+  const att = await treasuryAttachment(formData);
   await db.fund.update({ where: { id }, data: { status: "ACTIVO", balance: f.amount } });
-  await db.approval.create({ data: { fundId: id, step: "TESORERIA", decision: "TESORERIA", comment: "ENTREGA_FONDO", userId: user.id } });
+  await db.approval.create({ data: { fundId: id, step: "TESORERIA", decision: "TESORERIA", comment: "ENTREGA_FONDO", userId: user.id, ...att } });
   revalidatePath("/tesoreria");
 }
 
@@ -294,6 +306,7 @@ export async function settleReport(id: string, formData: FormData) {
   if (r.status !== "APROBADO" || r.treasuryAction) throw new Error("El informe no está pendiente en tesorería");
   const total = reportTotal(r.expenses);
   const note = str(formData, "note");
+  const att = await treasuryAttachment(formData);
   let action: string;
   let amount = total;
   let closeReport = true;
@@ -328,17 +341,18 @@ export async function settleReport(id: string, formData: FormData) {
       ...(closeReport ? { status: "CERRADO", closedAt: new Date() } : {}),
     },
   });
-  await db.approval.create({ data: { reportId: id, step: "TESORERIA", decision: "TESORERIA", comment: action, userId: user.id } });
+  await db.approval.create({ data: { reportId: id, step: "TESORERIA", decision: "TESORERIA", comment: action, userId: user.id, ...att } });
   revalidatePath("/tesoreria");
 }
 
-export async function confirmReturn(id: string) {
+export async function confirmReturn(id: string, formData?: FormData) {
   const user = await requireTreasury();
   const r = await db.report.findUniqueOrThrow({ where: { id } });
   if (r.treasuryAction !== "DEVOLUCION_SOLICITADA" || r.status === "CERRADO") throw new Error("Nada que confirmar");
+  const att = await treasuryAttachment(formData);
   await db.report.update({ where: { id }, data: { status: "CERRADO", closedAt: new Date() } });
   if (r.fundId) await db.fund.update({ where: { id: r.fundId }, data: { status: "CERRADO", balance: 0, closedAt: new Date() } });
-  await db.approval.create({ data: { reportId: id, step: "TESORERIA", decision: "TESORERIA", comment: "DEVOLUCION_RECIBIDA", userId: user.id } });
+  await db.approval.create({ data: { reportId: id, step: "TESORERIA", decision: "TESORERIA", comment: "DEVOLUCION_RECIBIDA", userId: user.id, ...att } });
   revalidatePath("/tesoreria");
 }
 
