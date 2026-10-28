@@ -76,7 +76,11 @@ model Expense {
   project     Project?  @relation(fields: [projectId], references: [id])
   note        String?
   ocrRaw      String? // JSON devuelto por la IA
-  observation String? // motivo del aprobador cuando pide corregir este gasto
+  // Rechazo de un gasto puntual: queda bloqueado y no se contabiliza
+  rejectedAt     DateTime?
+  rejectedReason String?
+  rejectedStep   String?
+  rejectedBy     String?
   reportId    String?
   report      Report?   @relation(fields: [reportId], references: [id])
   createdAt   DateTime  @default(now())
@@ -92,7 +96,7 @@ model Fund {
   amount       Int
   balance      Int        @default(0) // saldo disponible (caja chica)
   reason       String
-  // EN_APROBACION | OBSERVADO | RECHAZADO | APROBADO | ACTIVO | CERRADO
+  // EN_APROBACION | RECHAZADO | APROBADO | ACTIVO | CERRADO
   status       String     @default("EN_APROBACION")
   currentStep  String?    @default("JEFE")
   rejectReason String?
@@ -111,7 +115,7 @@ model Report {
   user             User       @relation(fields: [userId], references: [id])
   fundId           String?
   fund             Fund?      @relation(fields: [fundId], references: [id])
-  // BORRADOR | EN_APROBACION | OBSERVADO | RECHAZADO | APROBADO | CERRADO
+  // BORRADOR | EN_APROBACION | RECHAZADO | APROBADO | CERRADO
   status           String     @default("BORRADOR")
   currentStep      String? // JEFE | CONTABILIDAD | CONTROLLER
   rejectReason     String?
@@ -135,7 +139,7 @@ model Approval {
   fundId    String?
   fund      Fund?    @relation(fields: [fundId], references: [id])
   step      String // JEFE | CONTABILIDAD | CONTROLLER | TESORERIA | ENVIO
-  decision  String // ENVIADO | APROBADO | MODIFICAR | RECHAZADO | TESORERIA
+  decision  String // ENVIADO | APROBADO | RECHAZADO | GASTO_RECHAZADO | EDITADO | TESORERIA
   comment   String?
   userId    String
   user      User     @relation(fields: [userId], references: [id])

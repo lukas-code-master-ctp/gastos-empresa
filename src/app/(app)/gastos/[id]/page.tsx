@@ -4,30 +4,44 @@ import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { deleteExpense, updateExpense } from "@/app/actions";
 import { DOC_TYPES } from "@/lib/format";
+import { expenseEditMode, REVIEWER_ROLES } from "@/lib/workflow";
 
 export default async function GastoPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ ocr?: string }> }) {
   const user = await requireUser();
   const { id } = await params;
   const { ocr } = await searchParams;
-  const e = await db.expense.findUnique({ where: { id }, include: { report: true } });
-  if (!e || e.userId !== user.id) notFound();
+  const e = await db.expense.findUnique({ where: { id }, include: { report: true, user: true } });
+  const mine = e?.userId === user.id;
+  // Revisores (contabilidad, controller, tesorería) ven los gastos de informes enviados de su empresa
+  const reviewer = e && !mine && REVIEWER_ROLES.includes(user.role) && e.user.companyId === user.companyId && e.report && e.report.status !== "BORRADOR";
+  if (!e || (!mine && !reviewer)) notFound();
+  const mode = expenseEditMode(user, e);
   const [categories, projects] = await Promise.all([
     db.category.findMany({ where: { companyId: user.companyId }, orderBy: { name: "asc" } }),
     db.project.findMany({ where: { companyId: user.companyId }, orderBy: { name: "asc" } }),
   ]);
   const doubts: string[] = e.ocrRaw ? JSON.parse(e.ocrRaw).doubts ?? [] : [];
-  const editable = !e.report || ["BORRADOR", "OBSERVADO"].includes(e.report.status);
+  const editable = mode !== null;
   const d = (k: string) => (doubts.includes(k) ? "border-amber-400 bg-amber-50" : "");
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="h1">{e.merchant ?? "Nuevo gasto"}</h1>
-        <Link href="/gastos" className="text-sm text-emerald-700 hover:underline">← Mis gastos</Link>
+        {e.reportId && !mine ? (
+          <Link href={`/informes/${e.reportId}`} className="text-sm text-emerald-700 hover:underline">← Volver al informe</Link>
+        ) : (
+          <Link href="/gastos" className="text-sm text-emerald-700 hover:underline">← Mis gastos</Link>
+        )}
       </div>
-      {e.observation && editable && (
+      {e.rejectedAt && (
         <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
-          <b>El aprobador pidió corregir este gasto:</b> {e.observation}
+          <b>Gasto rechazado por {e.rejectedBy}:</b> {e.rejectedReason}. Quedó bloqueado y no se contabiliza.
+        </p>
+      )}
+      {mode === "reviewer" && (
+        <p className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
+          Estás editando un gasto de {e.user.name}. Los cambios quedan registrados en el historial del informe.
         </p>
       )}
       {ocr === "1" && <p className="rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800">La IA leyó la boleta. Revisa y corrige o completa los datos{doubts.length ? "; los campos en amarillo quedaron dudosos" : ""}.</p>}
@@ -104,7 +118,7 @@ export default async function GastoPage({ params, searchParams }: { params: Prom
           </fieldset>
         </form>
       </div>
-      {!e.reportId && (
+      {mine && !e.reportId && (
         <form action={deleteExpense.bind(null, e.id)}>
           <button className="text-sm text-red-600 hover:underline">Eliminar gasto</button>
         </form>

@@ -24,8 +24,32 @@ export function canApprove(user: Approver, step: string | null, owner: Owner & {
   return user.role === step;
 }
 
-export const reportTotal = (expenses: { amount: number | null }[]) =>
-  expenses.reduce((s, e) => s + (e.amount ?? 0), 0);
+// Solo cuentan los gastos que no fueron rechazados
+export const reportTotal = (expenses: { amount: number | null; rejectedAt?: Date | null }[]) =>
+  expenses.reduce((s, e) => s + (e.rejectedAt ? 0 : (e.amount ?? 0)), 0);
+
+export const rejectedTotal = (expenses: { amount: number | null; rejectedAt?: Date | null }[]) =>
+  expenses.reduce((s, e) => s + (e.rejectedAt ? (e.amount ?? 0) : 0), 0);
+
+// Contabilidad, controller y tesorería pueden editar gastos de informes en curso
+export const REVIEWER_ROLES = ["CONTABILIDAD", "CONTROLLER", "TESORERIA", "ADMIN"];
+
+export function expenseEditMode(
+  user: { id: string; role: string; companyId: string },
+  e: { userId: string; rejectedAt: Date | null; user: { companyId: string }; report: { status: string; treasuryAction: string | null } | null },
+): "owner" | "reviewer" | null {
+  if (e.rejectedAt) return null;
+  if (e.userId === user.id) return !e.report || e.report.status === "BORRADOR" ? "owner" : null;
+  if (
+    REVIEWER_ROLES.includes(user.role) &&
+    e.user.companyId === user.companyId &&
+    e.report &&
+    ["EN_APROBACION", "APROBADO"].includes(e.report.status) &&
+    !e.report.treasuryAction
+  )
+    return "reviewer";
+  return null;
+}
 
 // Campos mínimos para que un gasto pueda ir en un informe.
 export function missingFields(e: {

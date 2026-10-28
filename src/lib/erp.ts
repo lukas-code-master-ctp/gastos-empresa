@@ -5,7 +5,7 @@ import { db } from "./db";
 export async function registerInErp(reportId: string) {
   const report = await db.report.findUniqueOrThrow({
     where: { id: reportId },
-    include: { user: { include: { company: true } }, expenses: { include: { category: true, project: true } } },
+    include: { user: { include: { company: true } }, expenses: { where: { rejectedAt: null }, include: { category: true, project: true } } },
   });
 
   const payload = {

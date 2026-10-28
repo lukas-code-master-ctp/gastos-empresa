@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
-import { closeCajaChica, deliverFund, resubmitFund } from "@/app/actions";
+import { closeCajaChica, deliverFund } from "@/app/actions";
 import { clp, fecha, FUND_TYPES } from "@/lib/format";
 import { canApprove, reportTotal } from "@/lib/workflow";
 import { StatusBadge } from "@/components/Badge";
@@ -35,19 +35,6 @@ export default async function FondoPage({ params }: { params: Promise<{ id: stri
         </div>
       </div>
       <ChainProgress status={f.status} currentStep={f.currentStep} hasManager={Boolean(f.user.managerId)} approvals={f.approvals} />
-
-      {f.status === "OBSERVADO" && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
-          <b>Se pidió modificar:</b> {f.rejectReason}
-          {mine && (
-            <form action={resubmitFund.bind(null, f.id)} className="mt-3 grid gap-2 sm:grid-cols-[1fr_2fr_auto]">
-              <input name="amount" defaultValue={f.amount} className="input" />
-              <input name="reason" defaultValue={f.reason} className="input" />
-              <button className="btn">Reenviar</button>
-            </form>
-          )}
-        </div>
-      )}
 
       {f.status === "RECHAZADO" && (
         <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">

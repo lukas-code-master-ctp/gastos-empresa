@@ -11,7 +11,8 @@ Web app para que las empresas rindan gastos de **reembolsos**, **fondos fijos** 
 | Datos: comercio, monto + IVA, categoría, RUT proveedor, tipo y n° de documento, proyecto, nota | modelo `Expense` |
 | Se juntan gastos en un informe (reembolso, fondo fijo, caja chica) y se envía | `/informes/nuevo`, `/informes/[id]` |
 | Solicitud de fondo fijo o caja chica: monto y motivo → ciclo de aprobación | `/fondos/nuevo`, `/fondos/[id]` |
-| Cadena: jefe directo → contabilidad → controller. Si alguno rechaza: motivo → se pide modificar | `/aprobaciones`, `src/lib/workflow.ts`, acción `decide` |
+| Cadena: jefe directo → contabilidad → controller. Cada aprobador aprueba o rechaza (con motivo) el informe completo o gastos puntuales; los gastos rechazados quedan bloqueados y no se contabilizan | `/aprobaciones`, `src/lib/workflow.ts`, acción `decide` |
+| Contabilidad, controller y tesorería pueden editar gastos de informes en curso; cada cambio queda en el historial | acción `updateExpense` |
 | Gasto aprobado → integración ERP | `src/lib/erp.ts` (POST a `ERP_WEBHOOK_URL`, o simulado) |
 | Tesorería: reembolso → depósito · caja chica → se descuenta del monto de caja · fondo fijo → ¿calzó? cierra / ¿sobró? pide devolución / faltó → deposita diferencia → cierra | `/tesoreria`, acciones `settleReport`, `confirmReturn`, `deliverFund` |
 

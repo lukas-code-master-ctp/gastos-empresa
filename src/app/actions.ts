@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { clearSession, requireUser, setSession } from "@/lib/auth";
-import { canApprove, firstStep, missingFields, nextStep, reportTotal } from "@/lib/workflow";
+import { canApprove, expenseEditMode, firstStep, missingFields, nextStep, reportTotal } from "@/lib/workflow";
+import { clp, fecha } from "@/lib/format";
 import { registerInErp } from "@/lib/erp";
 
 const str = (f: FormData, k: string) => {
@@ -40,28 +41,57 @@ export async function createBlankExpense() {
 
 export async function updateExpense(id: string, formData: FormData) {
   const user = await requireUser();
-  const e = await db.expense.findUniqueOrThrow({ where: { id }, include: { report: true } });
-  if (e.userId !== user.id) throw new Error("No autorizado");
-  if (e.report && !["BORRADOR", "OBSERVADO"].includes(e.report.status)) throw new Error("El gasto ya está en aprobación");
+  const e = await db.expense.findUniqueOrThrow({ where: { id }, include: { report: true, user: true, category: true, project: true } });
+  const mode = expenseEditMode(user, e);
+  if (!mode) throw new Error("No puedes editar este gasto");
   const date = str(formData, "date");
-  await db.expense.update({
-    where: { id },
-    data: {
-      merchant: str(formData, "merchant"),
-      rutProvider: str(formData, "rutProvider"),
-      docType: str(formData, "docType"),
-      docNumber: str(formData, "docNumber"),
-      date: date ? new Date(`${date}T12:00:00`) : null,
-      amount: int(formData, "amount"),
-      iva: int(formData, "iva"),
-      categoryId: str(formData, "categoryId"),
-      projectId: str(formData, "projectId"),
-      note: str(formData, "note"),
-      observation: null, // al guardar se da por corregido
-    },
-  });
+  const data = {
+    merchant: str(formData, "merchant"),
+    rutProvider: str(formData, "rutProvider"),
+    docType: str(formData, "docType"),
+    docNumber: str(formData, "docNumber"),
+    date: date ? new Date(`${date}T12:00:00`) : null,
+    amount: int(formData, "amount"),
+    iva: int(formData, "iva"),
+    categoryId: str(formData, "categoryId"),
+    projectId: str(formData, "projectId"),
+    note: str(formData, "note"),
+  };
+  const updated = await db.expense.update({ where: { id }, data, include: { category: true, project: true } });
+
+  // Edición de un revisor: queda en el historial del informe qué cambió
+  if (mode === "reviewer" && e.reportId) {
+    const changes = describeChanges(e, updated);
+    if (changes.length) {
+      await db.approval.create({
+        data: { reportId: e.reportId, step: user.role, decision: "EDITADO", comment: `${e.merchant ?? "gasto"}: ${changes.join("; ")}`, userId: user.id },
+      });
+      if (e.report?.erpSyncedAt) await registerInErp(e.reportId).catch((err) => console.error("Error integrando con ERP", err));
+    }
+  }
   revalidatePath("/gastos");
   redirect(e.reportId ? `/informes/${e.reportId}` : "/gastos");
+}
+
+type ExpenseView = {
+  merchant: string | null; rutProvider: string | null; docType: string | null; docNumber: string | null; date: Date | null;
+  amount: number | null; iva: number | null; note: string | null; category: { name: string } | null; project: { name: string } | null;
+};
+
+function describeChanges(before: ExpenseView, after: ExpenseView) {
+  const fields: [string, (e: ExpenseView) => string][] = [
+    ["Comercio", (e) => e.merchant ?? "—"],
+    ["RUT proveedor", (e) => e.rutProvider ?? "—"],
+    ["Tipo de documento", (e) => e.docType ?? "—"],
+    ["N° documento", (e) => e.docNumber ?? "—"],
+    ["Fecha", (e) => fecha(e.date)],
+    ["Monto", (e) => clp(e.amount)],
+    ["IVA", (e) => clp(e.iva)],
+    ["Categoría", (e) => e.category?.name ?? "—"],
+    ["Proyecto", (e) => e.project?.name ?? "—"],
+    ["Nota", (e) => e.note ?? "—"],
+  ];
+  return fields.filter(([, f]) => f(before) !== f(after)).map(([label, f]) => `${label} ${f(before)} → ${f(after)}`);
 }
 
 export async function deleteExpense(id: string) {
@@ -99,7 +129,7 @@ export async function createReport(formData: FormData) {
 export async function setReportExpenses(id: string, formData: FormData) {
   const user = await requireUser();
   const r = await db.report.findUniqueOrThrow({ where: { id } });
-  if (r.userId !== user.id || !["BORRADOR", "OBSERVADO"].includes(r.status)) throw new Error("No editable");
+  if (r.userId !== user.id || r.status !== "BORRADOR") throw new Error("No editable");
   const ids = formData.getAll("expenseIds").map(String);
   await db.expense.updateMany({ where: { reportId: id }, data: { reportId: null } });
   await db.expense.updateMany({ where: { id: { in: ids }, userId: user.id, reportId: null }, data: { reportId: id } });
@@ -109,7 +139,7 @@ export async function setReportExpenses(id: string, formData: FormData) {
 export async function submitReport(id: string) {
   const user = await requireUser();
   const r = await db.report.findUniqueOrThrow({ where: { id }, include: { expenses: true, fund: true } });
-  if (r.userId !== user.id || !["BORRADOR", "OBSERVADO"].includes(r.status)) throw new Error("No se puede enviar");
+  if (r.userId !== user.id || r.status !== "BORRADOR") throw new Error("No se puede enviar");
   if (r.expenses.length === 0) throw new Error("El informe no tiene gastos");
   const incompletos = r.expenses.filter((e) => missingFields(e).length > 0);
   if (incompletos.length) throw new Error("Hay gastos con datos faltantes");
@@ -119,7 +149,6 @@ export async function submitReport(id: string) {
     where: { id },
     data: { status: "EN_APROBACION", currentStep: firstStep(user), rejectReason: null, submittedAt: new Date() },
   });
-  await db.expense.updateMany({ where: { reportId: id }, data: { observation: null } });
   await db.approval.create({ data: { reportId: id, step: "ENVIO", decision: "ENVIADO", userId: user.id } });
   revalidatePath(`/informes/${id}`);
 }
@@ -137,12 +166,12 @@ export async function deleteReport(id: string) {
 
 export async function decide(kind: "report" | "fund", id: string, formData: FormData) {
   const user = await requireUser();
-  // APROBADO avanza la cadena · MODIFICAR devuelve al usuario · RECHAZADO cierra la solicitud
+  // APROBADO avanza la cadena (sin los gastos marcados como rechazados) · RECHAZADO cierra todo
   const decision = String(formData.get("decision"));
-  if (!["APROBADO", "MODIFICAR", "RECHAZADO"].includes(decision)) throw new Error("Decisión inválida");
-  const approve = decision === "APROBADO";
+  if (!["APROBADO", "RECHAZADO"].includes(decision)) throw new Error("Decisión inválida");
   const comment = str(formData, "comment");
-  if (!approve && !comment) throw new Error("Debes indicar el motivo");
+  const rejectIds = kind === "report" ? formData.getAll("rejectIds").map(String) : [];
+  if ((decision === "RECHAZADO" || rejectIds.length) && !comment) throw new Error("Debes indicar el motivo del rechazo");
 
   const item =
     kind === "report"
@@ -150,28 +179,42 @@ export async function decide(kind: "report" | "fund", id: string, formData: Form
       : await db.fund.findUniqueOrThrow({ where: { id }, include: { user: true } });
   if (item.status !== "EN_APROBACION" || !canApprove(user, item.currentStep, item.user))
     throw new Error("No te corresponde aprobar este paso");
-
   const step = item.currentStep!;
+
+  let approve = decision === "APROBADO";
+  if (kind === "report") {
+    // Rechazar todo el informe equivale a rechazar todos sus gastos pendientes
+    const pending = await db.expense.findMany({ where: { reportId: id, rejectedAt: null } });
+    const toReject = approve ? pending.filter((e) => rejectIds.includes(e.id)) : pending;
+    if (approve && toReject.length === pending.length) approve = false;
+    const rejected = { rejectedAt: new Date(), rejectedReason: comment, rejectedStep: step, rejectedBy: user.name };
+    for (const e of toReject) await db.expense.update({ where: { id: e.id }, data: rejected });
+    if (approve)
+      for (const e of toReject)
+        await db.approval.create({
+          data: { reportId: id, step, decision: "GASTO_RECHAZADO", comment: `${e.merchant ?? "gasto"} (${clp(e.amount)}): ${comment}`, userId: user.id },
+        });
+  }
+
   const next = approve ? nextStep(step) : null;
   const data = approve
     ? next
       ? { currentStep: next }
       : { currentStep: null, status: "APROBADO" }
-    : { currentStep: null, status: decision === "MODIFICAR" ? "OBSERVADO" : "RECHAZADO", rejectReason: comment };
-
+    : { currentStep: null, status: "RECHAZADO", rejectReason: comment };
   if (kind === "report") await db.report.update({ where: { id }, data });
   else await db.fund.update({ where: { id }, data });
-  // Al pedir modificar, se marcan los gastos que el aprobador indicó con el motivo
-  if (kind === "report" && decision === "MODIFICAR") {
-    const flagged = formData.getAll("flaggedIds").map(String);
-    await db.expense.updateMany({ where: { reportId: id }, data: { observation: null } });
-    if (flagged.length) await db.expense.updateMany({ where: { reportId: id, id: { in: flagged } }, data: { observation: comment } });
-  }
   await db.approval.create({
-    data: { [kind === "report" ? "reportId" : "fundId"]: id, step, decision, comment, userId: user.id },
+    data: {
+      [kind === "report" ? "reportId" : "fundId"]: id,
+      step,
+      decision: approve ? "APROBADO" : "RECHAZADO",
+      comment: approve ? null : comment,
+      userId: user.id,
+    },
   });
 
-  // Gasto aprobado → se registra en el ERP
+  // Gasto aprobado → se registra en el ERP (solo los gastos no rechazados)
   if (kind === "report" && approve && !next) {
     try {
       await registerInErp(id);
@@ -195,24 +238,6 @@ export async function createFund(formData: FormData) {
   });
   await db.approval.create({ data: { fundId: fund.id, step: "ENVIO", decision: "ENVIADO", userId: user.id } });
   redirect(`/fondos/${fund.id}`);
-}
-
-export async function resubmitFund(id: string, formData: FormData) {
-  const user = await requireUser();
-  const f = await db.fund.findUniqueOrThrow({ where: { id } });
-  if (f.userId !== user.id || f.status !== "OBSERVADO") throw new Error("No editable");
-  await db.fund.update({
-    where: { id },
-    data: {
-      amount: int(formData, "amount") ?? f.amount,
-      reason: str(formData, "reason") ?? f.reason,
-      status: "EN_APROBACION",
-      currentStep: firstStep(user),
-      rejectReason: null,
-    },
-  });
-  await db.approval.create({ data: { fundId: id, step: "ENVIO", decision: "ENVIADO", userId: user.id } });
-  revalidatePath(`/fondos/${id}`);
 }
 
 // ---------- Tesorería ----------

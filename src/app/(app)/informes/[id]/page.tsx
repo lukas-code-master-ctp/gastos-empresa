@@ -4,8 +4,8 @@ import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { deleteReport, setReportExpenses, submitReport } from "@/app/actions";
-import { clp, fecha, FUND_TYPES, REPORT_TYPES, TREASURY } from "@/lib/format";
-import { canApprove, missingFields, reportTotal } from "@/lib/workflow";
+import { clp, fecha, FUND_TYPES, REPORT_TYPES, STEPS, TREASURY } from "@/lib/format";
+import { canApprove, expenseEditMode, missingFields, rejectedTotal, reportTotal } from "@/lib/workflow";
 import { StatusBadge } from "@/components/Badge";
 import { ChainProgress, DecisionForm, History } from "@/components/Workflow";
 import { ExpensePicker } from "@/components/ExpensePicker";
@@ -29,8 +29,12 @@ export default async function InformePage({ params }: { params: Promise<{ id: st
   const isTreasury = ["TESORERIA", "ADMIN"].includes(user.role);
   if (!mine && !isApprover && !isTreasury && !["CONTABILIDAD", "CONTROLLER", "ADMIN"].includes(user.role) && r.user.managerId !== user.id) notFound();
 
-  const editable = mine && ["BORRADOR", "OBSERVADO"].includes(r.status);
+  const editable = mine && r.status === "BORRADOR";
+  // Contabilidad, controller o tesorería pueden editar los gastos mientras el informe está en curso
+  const reviewerEdit = expenseEditMode(user, { userId: r.userId, rejectedAt: null, user: r.user, report: r }) === "reviewer";
   const total = reportTotal(r.expenses);
+  const rejected = rejectedTotal(r.expenses);
+  const rejectedCount = r.expenses.filter((e) => e.rejectedAt).length;
   const incomplete = r.expenses.some((e) => missingFields(e).length > 0);
   const available = editable ? await db.expense.findMany({ where: { userId: user.id, OR: [{ reportId: null }, { reportId: r.id }] }, orderBy: { date: "desc" } }) : [];
 
@@ -45,24 +49,11 @@ export default async function InformePage({ params }: { params: Promise<{ id: st
         <div className="text-right">
           <StatusBadge status={r.status} />
           <div className="mt-2 text-2xl font-semibold tabular-nums">{clp(total)}</div>
+          {rejectedCount > 0 && <div className="text-xs text-red-700">{rejectedCount} {rejectedCount === 1 ? "gasto rechazado" : "gastos rechazados"} ({clp(rejected)}) no se contabiliza{rejectedCount === 1 ? "" : "n"}</div>}
         </div>
       </div>
 
       <ChainProgress status={r.status} currentStep={r.currentStep} hasManager={Boolean(r.user.managerId)} approvals={r.approvals} />
-
-      {r.status === "OBSERVADO" && r.rejectReason && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
-          <b>Se pidió modificar o arreglar:</b> {r.rejectReason}
-          {mine && (
-            <div className="mt-1 text-red-700">
-              {r.expenses.some((e) => e.observation)
-                ? `Corrige ${r.expenses.filter((e) => e.observation).length === 1 ? "el gasto marcado" : "los gastos marcados"} en rojo y vuelve a enviar.`
-                : "Corrige los gastos y vuelve a enviar."}{" "}
-              La cadena de aprobación parte de nuevo.
-            </div>
-          )}
-        </div>
-      )}
 
       {r.status === "RECHAZADO" && (
         <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
@@ -101,15 +92,17 @@ export default async function InformePage({ params }: { params: Promise<{ id: st
                   const missing = missingFields(e);
                   return (
                     <Fragment key={e.id}>
-                    <tr className={e.observation ? "bg-red-50 [&>td]:border-b-0" : undefined}>
+                    <tr className={e.rejectedAt ? "bg-slate-50 text-slate-400 line-through [&>td]:border-b-0" : undefined}>
                       <td>{fecha(e.date)}</td>
                       <td>
                         {mine || e.receiptPath ? (
-                          <Link href={mine ? `/gastos/${e.id}` : `/api/files/${e.receiptPath}`} target={mine ? undefined : "_blank"} className="text-emerald-700 hover:underline">{e.merchant ?? "Sin comercio"}</Link>
+                          <Link href={mine ? `/gastos/${e.id}` : `/api/files/${e.receiptPath}`} target={mine ? undefined : "_blank"} className={e.rejectedAt ? "" : "text-emerald-700 hover:underline"}>{e.merchant ?? "Sin comercio"}</Link>
                         ) : (e.merchant)}
                         {e.rutProvider && <div className="text-xs text-slate-400">{e.rutProvider}</div>}
-                        {missing.length > 0 && <div className="text-xs text-amber-700">Falta: {missing.join(", ")}</div>}
-                        {editable && !e.observation && <Link href={`/gastos/${e.id}`} className="block text-xs text-slate-500 underline hover:text-emerald-700">Corregir</Link>}
+                        {!e.rejectedAt && missing.length > 0 && <div className="text-xs text-amber-700 no-underline">Falta: {missing.join(", ")}</div>}
+                        {!e.rejectedAt && (editable || reviewerEdit) && (
+                          <Link href={`/gastos/${e.id}`} className="block text-xs text-slate-500 underline hover:text-emerald-700">Editar</Link>
+                        )}
                       </td>
                       <td className="text-xs">{e.docType} {e.docNumber}</td>
                       <td>{e.category?.name ?? "—"}</td>
@@ -117,20 +110,17 @@ export default async function InformePage({ params }: { params: Promise<{ id: st
                       <td className="text-right tabular-nums">{clp(e.iva)}</td>
                       <td className="text-right tabular-nums">{clp(e.amount)}</td>
                     </tr>
-                    {e.observation && (
-                      <tr className="bg-red-50">
-                        <td colSpan={7}>
-                          <div className="flex flex-wrap items-center justify-between gap-2">
-                            <span className="text-sm text-red-700">⚠ Corregir este gasto: {e.observation}</span>
-                            {editable && <Link href={`/gastos/${e.id}`} className="btn-danger px-3 py-1 text-xs">Corregir</Link>}
-                          </div>
+                    {e.rejectedAt && (
+                      <tr className="bg-slate-50">
+                        <td colSpan={7} className="text-sm text-red-700">
+                          ✕ Rechazado por {e.rejectedBy}{e.rejectedStep ? ` (${STEPS[e.rejectedStep] ?? e.rejectedStep})` : ""}: {e.rejectedReason}
                         </td>
                       </tr>
                     )}
                     </Fragment>
                   );
                 })}
-                <tr className="font-semibold"><td colSpan={6}>Total</td><td className="text-right tabular-nums">{clp(total)}</td></tr>
+                <tr className="font-semibold"><td colSpan={6}>{rejectedCount > 0 ? "Total aprobado" : "Total"}</td><td className="text-right tabular-nums">{clp(total)}</td></tr>
               </tbody>
             </table>
           </div>
@@ -145,7 +135,7 @@ export default async function InformePage({ params }: { params: Promise<{ id: st
               <div className="flex flex-wrap items-center gap-3">
                 <form action={submitReport.bind(null, r.id)}>
                   <button className="btn" disabled={r.expenses.length === 0 || incomplete}>
-                    {r.status === "OBSERVADO" ? "Reenviar a aprobación" : "Enviar informe"}
+                    Enviar informe
                   </button>
                 </form>
                 {incomplete && <span className="text-sm text-amber-700">Completa los datos faltantes antes de enviar.</span>}

@@ -18,12 +18,10 @@ export default async function Home() {
       : Promise.resolve(null),
   ]);
   const inFlow = reports.filter((r) => r.status === "EN_APROBACION");
-  const observed = reports.filter((r) => r.status === "OBSERVADO");
 
   const tiles = [
     { label: "Gastos sin informe", value: drafts, href: "/gastos" },
     { label: "Informes en aprobación", value: `${inFlow.length} · ${clp(inFlow.reduce((s, r) => s + reportTotal(r.expenses), 0))}`, href: "/informes" },
-    { label: "Informes observados", value: observed.length, href: "/informes", alert: observed.length > 0 },
     ...(pending.reports.length + pending.funds.length > 0 || user.role !== "EMPLEADO"
       ? [{ label: "Por aprobar", value: pending.reports.length + pending.funds.length, href: "/aprobaciones", alert: pending.reports.length + pending.funds.length > 0 }]
       : []),
