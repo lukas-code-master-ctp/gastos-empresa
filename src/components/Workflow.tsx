@@ -4,10 +4,14 @@ import { fecha, STEPS, TREASURY } from "@/lib/format";
 type ApprovalRow = { id: string; step: string; decision: string; comment: string | null; createdAt: Date; user: { name: string } };
 
 // Barra de progreso de la cadena: Envío → Jefe directo → Contabilidad → Controller → Tesorería
-export function ChainProgress({ status, currentStep, hasManager }: { status: string; currentStep: string | null; hasManager: boolean }) {
+export function ChainProgress({ status, currentStep, hasManager, approvals }: { status: string; currentStep: string | null; hasManager: boolean; approvals: { step: string; decision: string }[] }) {
   const steps = [...(hasManager ? ["JEFE"] : []), "CONTABILIDAD", "CONTROLLER"];
+  // Si se pidió modificar o se rechazó, se marca en rojo el paso de quien lo hizo
+  const stopped = ["OBSERVADO", "RECHAZADO"].includes(status);
+  const stop = stopped ? approvals.findLast((a) => ["MODIFICAR", "RECHAZADO"].includes(a.decision)) : undefined;
+  const stopIdx = stop ? steps.indexOf(stop.step) : -1;
   const idx = currentStep ? steps.indexOf(currentStep) : status === "EN_APROBACION" ? 0 : -1;
-  const done = (i: number) => ["APROBADO", "ACTIVO", "CERRADO"].includes(status) || (status === "EN_APROBACION" && i < idx);
+  const done = (i: number) => ["APROBADO", "ACTIVO", "CERRADO"].includes(status) || (status === "EN_APROBACION" && i < idx) || (stopped && i < stopIdx);
   const items = [...steps.map((s) => STEPS[s]), "Tesorería"];
   return (
     <ol className="flex flex-wrap items-center gap-2 text-xs">
@@ -17,8 +21,8 @@ export function ChainProgress({ status, currentStep, hasManager }: { status: str
         const current = isTreasury ? status === "APROBADO" : status === "EN_APROBACION" && i === idx;
         return (
           <li key={label} className="flex items-center gap-2">
-            <span className={`rounded-full px-3 py-1 font-medium ${ok ? "bg-emerald-600 text-white" : current ? "bg-amber-400 text-amber-950" : ["OBSERVADO", "RECHAZADO"].includes(status) && i === 0 ? "bg-red-100 text-red-700" : "bg-slate-100 text-slate-500"}`}>
-              {ok ? "✓ " : ""}{label}
+            <span className={`rounded-full px-3 py-1 font-medium ${ok ? "bg-emerald-600 text-white" : current ? "bg-amber-400 text-amber-950" : i === stopIdx ? "bg-red-100 text-red-700 ring-1 ring-red-300" : "bg-slate-100 text-slate-500"}`}>
+              {ok ? "✓ " : i === stopIdx ? (status === "RECHAZADO" ? "✕ " : "↩ ") : ""}{label}
             </span>
             {i < items.length - 1 && <span className="text-slate-300">→</span>}
           </li>
