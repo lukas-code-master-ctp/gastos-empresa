@@ -29,6 +29,19 @@ npm run dev                 # http://localhost:3000
 
 En `/login` eliges un usuario de demo (Ana y Bruno son empleados con jefe Jorge; Pedro es contabilidad, Carla controller, Tamara tesorería).
 
+## Publicar en Vercel
+
+El proyecto de Vercel está conectado al repo: cada push a `main` despliega solo. En Vercel corre `npm run vercel-build` (`scripts/vercel-build.mjs`), que pasa la schema a Postgres, sincroniza tablas con `prisma db push`, carga la demo solo si la base está vacía y hace `next build`.
+
+Variables en Vercel (Settings → Environment Variables):
+
+| Variable | Para qué |
+|---|---|
+| `DATABASE_URL`, `DATABASE_URL_UNPOOLED` | Postgres de Neon (las crea la integración al conectar la base) |
+| `BLOB_READ_WRITE_TOKEN` | Vercel Blob privado para boletas y comprobantes (lo crea el store de Blob) |
+| `APP_PASSWORD` | Clave que pide el navegador antes de entrar, mientras el login sea de demo |
+| `ANTHROPIC_API_KEY` | Lectura de boletas con IA (opcional) |
+
 ## Diseño
 
 Paleta Ciruela y Mandarina, tipografías Bricolage Grotesque (títulos), Geist (texto) y Geist Mono (etiquetas), animaciones con `motion`. Los colores viven en `src/app/globals.css` (las escalas de Tailwind están redefinidas con la marca) y el logo en `src/components/Brand.tsx` e `src/app/icon.svg`.
@@ -40,7 +53,6 @@ Next.js 15 (App Router, server actions) · TypeScript · Tailwind · Prisma (SQL
 ## Pendiente para producción
 
 - Autenticación real (SSO / NextAuth) en vez del selector de usuario de demo.
-- Base de datos Postgres y almacenamiento de boletas en S3 / Blob (hoy carpeta `uploads/`).
 - Conector real del ERP que usen (hoy webhook genérico con el asiento por línea: cuenta contable por categoría y centro de costo por proyecto).
 - Número de WhatsApp Business y credenciales de Meta (`WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_VERIFY_TOKEN`).
 - Mantenedores de empresas, usuarios, categorías y proyectos (hoy vienen del seed).

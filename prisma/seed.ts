@@ -3,6 +3,8 @@ import { PrismaClient } from "@prisma/client";
 const db = new PrismaClient();
 
 async function main() {
+  // En Vercel el build corre el seed en cada deploy: solo carga la demo si la base está vacía.
+  if (process.env.SEED_ONLY_IF_EMPTY && (await db.company.count()) > 0) return console.log("Base con datos, seed omitido");
   await db.approval.deleteMany();
   await db.expense.deleteMany();
   await db.report.deleteMany();

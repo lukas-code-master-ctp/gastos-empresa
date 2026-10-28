@@ -44,4 +44,5 @@ next-env.d.ts
 /uploads
 prisma/*.db
 prisma/*.db-journal
+prisma/schema.prod.prisma
 !.env.example

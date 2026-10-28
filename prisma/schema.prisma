@@ -2,7 +2,7 @@ generator client {
   provider = "prisma-client-js"
 }
 
-// SQLite para desarrollo. En producción cambiar a "postgresql".
+// SQLite para desarrollo. En Vercel scripts/vercel-build.mjs la pasa a Postgres (no cambiar a mano).
 datasource db {
   provider = "sqlite"
   url      = env("DATABASE_URL")

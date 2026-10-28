@@ -1,8 +1,6 @@
-import { readFile } from "fs/promises";
-import path from "path";
 import { currentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { UPLOAD_DIR } from "@/lib/storage";
+import { readStoredFile } from "@/lib/storage";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ name: string }> }) {
   const user = await currentUser();
@@ -12,7 +10,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ name: s
   // También sirve los comprobantes que adjunta tesorería
   const approval = expense ? null : await db.approval.findFirst({ where: { attachmentPath: name, user: { companyId: user.companyId } } });
   if (!expense && !approval) return new Response("No encontrado", { status: 404 });
-  const data = await readFile(path.join(UPLOAD_DIR, path.basename(name)));
+  const data = await readStoredFile(name);
+  if (!data) return new Response("Archivo no encontrado", { status: 404 });
   const mime = expense?.receiptMime ?? approval?.attachmentMime ?? "application/octet-stream";
   return new Response(data, { headers: { "content-type": mime } });
 }
