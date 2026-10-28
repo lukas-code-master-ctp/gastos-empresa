@@ -91,7 +91,7 @@ model Fund {
   amount       Int
   balance      Int        @default(0) // saldo disponible (caja chica)
   reason       String
-  // EN_APROBACION | OBSERVADO | APROBADO | ACTIVO | CERRADO
+  // EN_APROBACION | OBSERVADO | RECHAZADO | APROBADO | ACTIVO | CERRADO
   status       String     @default("EN_APROBACION")
   currentStep  String?    @default("JEFE")
   rejectReason String?
@@ -110,7 +110,7 @@ model Report {
   user             User       @relation(fields: [userId], references: [id])
   fundId           String?
   fund             Fund?      @relation(fields: [fundId], references: [id])
-  // BORRADOR | EN_APROBACION | OBSERVADO | APROBADO | CERRADO
+  // BORRADOR | EN_APROBACION | OBSERVADO | RECHAZADO | APROBADO | CERRADO
   status           String     @default("BORRADOR")
   currentStep      String? // JEFE | CONTABILIDAD | CONTROLLER
   rejectReason     String?
@@ -134,7 +134,7 @@ model Approval {
   fundId    String?
   fund      Fund?    @relation(fields: [fundId], references: [id])
   step      String // JEFE | CONTABILIDAD | CONTROLLER | TESORERIA | ENVIO
-  decision  String // ENVIADO | APROBADO | RECHAZADO | TESORERIA
+  decision  String // ENVIADO | APROBADO | MODIFICAR | RECHAZADO | TESORERIA
   comment   String?
   userId    String
   user      User     @relation(fields: [userId], references: [id])

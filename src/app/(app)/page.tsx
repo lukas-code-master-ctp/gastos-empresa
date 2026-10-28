@@ -8,7 +8,7 @@ export default async function Home() {
   const user = await requireUser();
   const [drafts, reports, funds, pending, treasury] = await Promise.all([
     db.expense.count({ where: { userId: user.id, reportId: null } }),
-    db.report.findMany({ where: { userId: user.id, status: { not: "CERRADO" } }, include: { expenses: true } }),
+    db.report.findMany({ where: { userId: user.id, status: { notIn: ["CERRADO", "RECHAZADO"] } }, include: { expenses: true } }),
     db.fund.findMany({ where: { userId: user.id, status: "ACTIVO" } }),
     pendingApprovals(user),
     ["TESORERIA", "ADMIN"].includes(user.role)

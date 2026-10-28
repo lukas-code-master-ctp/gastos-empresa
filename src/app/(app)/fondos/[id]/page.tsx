@@ -49,6 +49,12 @@ export default async function FondoPage({ params }: { params: Promise<{ id: stri
         </div>
       )}
 
+      {f.status === "RECHAZADO" && (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+          <b>Solicitud rechazada:</b> {f.rejectReason}
+        </div>
+      )}
+
       {isApprover && f.status === "EN_APROBACION" && <DecisionForm kind="fund" id={f.id} step={f.currentStep!} />}
 
       {isTreasury && f.status === "APROBADO" && (

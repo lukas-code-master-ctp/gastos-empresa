@@ -56,6 +56,13 @@ export default async function InformePage({ params }: { params: Promise<{ id: st
         </div>
       )}
 
+      {r.status === "RECHAZADO" && (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+          <b>Informe rechazado:</b> {r.rejectReason}
+          {mine && <div className="mt-1 text-red-700">El informe quedó cerrado y no se pagará.</div>}
+        </div>
+      )}
+
       {r.fund && (
         <div className="card text-sm">
           {FUND_TYPES[r.fund.type]}: <Link href={`/fondos/${r.fund.id}`} className="text-emerald-700 hover:underline">{r.fund.reason}</Link> · entregado {clp(r.fund.amount)}
