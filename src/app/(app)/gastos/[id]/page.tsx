@@ -22,7 +22,8 @@ export default async function GastoPage({ params, searchParams }: { params: Prom
   ]);
   const doubts: string[] = e.ocrRaw ? JSON.parse(e.ocrRaw).doubts ?? [] : [];
   const editable = mode !== null;
-  const d = (k: string) => (doubts.includes(k) ? "border-amber-400 bg-amber-50" : "");
+  // Campo vacío → naranjo "Por completar"; dudoso según la IA → amarillo "Revisar" (estilos .field en globals.css)
+  const f = (k: string, extra = "") => ({ className: `${editable ? "field" : ""} ${extra}`.trim(), "data-doubt": doubts.includes(k) || undefined });
 
   return (
     <div className="space-y-6">
@@ -44,7 +45,7 @@ export default async function GastoPage({ params, searchParams }: { params: Prom
           Estás editando un gasto de {e.user.name}. Los cambios quedan registrados en el historial del informe.
         </p>
       )}
-      {ocr === "1" && <p className="rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800">La IA leyó la boleta. Revisa y corrige o completa los datos{doubts.length ? "; los campos en amarillo quedaron dudosos" : ""}.</p>}
+      {ocr === "1" && <p className="rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800">La IA leyó la boleta. Completa los campos marcados «Por completar»{doubts.length ? " y confirma los marcados «Revisar», que quedaron dudosos" : ""}.</p>}
       {ocr === "0" && <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">No se pudo leer la boleta automáticamente. Completa los datos a mano.</p>}
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="card">
@@ -61,45 +62,45 @@ export default async function GastoPage({ params, searchParams }: { params: Prom
         </div>
         <form action={updateExpense.bind(null, e.id)} className="card grid grid-cols-2 gap-4">
           <fieldset disabled={!editable} className="contents">
-            <div className="col-span-2">
+            <div {...f("merchant", "col-span-2")}>
               <label className="label">Nombre del comercio</label>
-              <input name="merchant" defaultValue={e.merchant ?? ""} className={`input ${d("merchant")}`} required />
+              <input name="merchant" defaultValue={e.merchant ?? ""} placeholder="Ej. Copec" className="input" required />
             </div>
-            <div>
+            <div {...f("rutProvider")}>
               <label className="label">RUT proveedor</label>
-              <input name="rutProvider" defaultValue={e.rutProvider ?? ""} className={`input ${d("rutProvider")}`} placeholder="12.345.678-9" />
+              <input name="rutProvider" defaultValue={e.rutProvider ?? ""} className="input" placeholder="12.345.678-9" />
             </div>
-            <div>
+            <div {...f("date")}>
               <label className="label">Fecha</label>
-              <input type="date" name="date" defaultValue={e.date?.toISOString().slice(0, 10) ?? ""} className={`input ${d("date")}`} required />
+              <input type="date" name="date" defaultValue={e.date?.toISOString().slice(0, 10) ?? ""} className="input" required />
             </div>
-            <div>
+            <div {...f("docType")}>
               <label className="label">Tipo de documento</label>
-              <select name="docType" defaultValue={e.docType ?? ""} className={`input ${d("docType")}`} required>
+              <select name="docType" defaultValue={e.docType ?? ""} className="input" required>
                 <option value="">Selecciona…</option>
                 {DOC_TYPES.map((t) => <option key={t} value={t}>{t.charAt(0) + t.slice(1).toLowerCase()}</option>)}
               </select>
             </div>
-            <div>
+            <div {...f("docNumber")}>
               <label className="label">Número de documento</label>
-              <input name="docNumber" defaultValue={e.docNumber ?? ""} className={`input ${d("docNumber")}`} />
+              <input name="docNumber" defaultValue={e.docNumber ?? ""} placeholder="Folio" className="input" />
             </div>
-            <div>
+            <div {...f("amount")}>
               <label className="label">Monto total (con IVA)</label>
-              <input name="amount" inputMode="numeric" defaultValue={e.amount ?? ""} className={`input ${d("amount")}`} required />
+              <input name="amount" inputMode="numeric" defaultValue={e.amount ?? ""} placeholder="0" className="input" required />
             </div>
-            <div>
+            <div {...f("iva")}>
               <label className="label">IVA</label>
-              <input name="iva" inputMode="numeric" defaultValue={e.iva ?? ""} className={`input ${d("iva")}`} />
+              <input name="iva" inputMode="numeric" defaultValue={e.iva ?? ""} placeholder="0" className="input" />
             </div>
-            <div>
+            <div {...f("categoryId")}>
               <label className="label">Categoría</label>
-              <select name="categoryId" defaultValue={e.categoryId ?? ""} className={`input ${d("categoryId")}`} required>
+              <select name="categoryId" defaultValue={e.categoryId ?? ""} className="input" required>
                 <option value="">Selecciona…</option>
                 {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
-            <div>
+            <div {...(projects.length ? f("projectId") : {})}>
               <label className="label">Proyecto</label>
               <select name="projectId" defaultValue={e.projectId ?? ""} className="input">
                 <option value="">Sin proyecto</option>
