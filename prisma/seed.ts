@@ -14,6 +14,7 @@ async function main() {
   await db.user.deleteMany();
   await db.category.deleteMany();
   await db.project.deleteMany();
+  await db.approvalFlow.deleteMany();
   await db.company.deleteMany();
 
   const company = await db.company.create({ data: { name: "Empresa Demo SpA", rut: "76.123.456-7" } });

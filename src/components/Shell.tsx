@@ -8,17 +8,20 @@ import { NavLinks, type NavItem } from "./NavLinks";
 
 export default async function Shell({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
-  const approver = ["JEFE", "CONTABILIDAD", "CONTROLLER", "ADMIN"].includes(user.role);
+  // Con flujos configurables cualquiera puede ser aprobador de un paso
+  const pending = await pendingApprovals(user);
+  const pendingCount = pending.reports.length + pending.funds.length;
+  const approver = ["JEFE", "CONTABILIDAD", "CONTROLLER", "ADMIN"].includes(user.role) || pendingCount > 0;
   const treasury = ["TESORERIA", "ADMIN"].includes(user.role);
-  const pending = approver ? await pendingApprovals(user) : null;
   const links: NavItem[] = [
     { href: "/", label: "Inicio", icon: "home" },
     { href: "/gastos", label: "Mis gastos", icon: "receipt" },
     { href: "/informes", label: "Mis informes", icon: "folder" },
     { href: "/fondos", label: "Fondos y caja chica", icon: "wallet" },
     { href: "/whatsapp", label: "WhatsApp (simulador)", icon: "chat" },
-    ...(approver ? [{ href: "/aprobaciones", label: "Aprobaciones", icon: "check" as const, badge: pending ? pending.reports.length + pending.funds.length : 0 }] : []),
+    ...(approver ? [{ href: "/aprobaciones", label: "Aprobaciones", icon: "check" as const, badge: pendingCount }] : []),
     ...(treasury ? [{ href: "/tesoreria", label: "Tesorería", icon: "bank" as const }] : []),
+    ...(user.role === "ADMIN" ? [{ href: "/admin/flujos", label: "Flujos de aprobación", icon: "flow" as const }] : []),
   ];
   const initials = user.name.split(" ").map((p) => p[0]).slice(0, 2).join("");
   return (

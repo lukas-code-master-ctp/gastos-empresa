@@ -5,8 +5,8 @@ import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { deleteReport, rejectExpense, restoreExpense, submitReport } from "@/app/actions";
 import { RejectButton } from "@/components/RejectButton";
-import { clp, fecha, FUND_TYPES, REPORT_TYPES, STEPS, TREASURY } from "@/lib/format";
-import { canApprove, expenseEditMode, missingFields, rejectedTotal, reportTotal } from "@/lib/workflow";
+import { clp, fecha, FUND_TYPES, REPORT_TYPES, TREASURY } from "@/lib/format";
+import { canApprove, expenseEditMode, flowOf, inFlow, missingFields, rejectedTotal, reportTotal, stepLabel } from "@/lib/workflow";
 import { StatusBadge } from "@/components/Badge";
 import { ChainProgress, DecisionForm, History } from "@/components/Workflow";
 import { TreasuryReportPanel } from "@/components/Treasury";
@@ -25,9 +25,10 @@ export default async function InformePage({ params }: { params: Promise<{ id: st
   });
   if (!r || r.user.companyId !== user.companyId) notFound();
   const mine = r.userId === user.id;
-  const isApprover = canApprove(user, r.currentStep, r.user);
+  const isApprover = canApprove(user, r);
+  const flow = flowOf(r);
   const isTreasury = ["TESORERIA", "ADMIN"].includes(user.role);
-  if (!mine && !isApprover && !isTreasury && !["CONTABILIDAD", "CONTROLLER", "ADMIN"].includes(user.role) && r.user.managerId !== user.id) notFound();
+  if (!mine && !isApprover && !isTreasury && !["CONTABILIDAD", "CONTROLLER", "ADMIN"].includes(user.role) && r.user.managerId !== user.id && !inFlow(user, r)) notFound();
 
   const editable = mine && r.status === "BORRADOR";
   const reviewing = isApprover && r.status === "EN_APROBACION";
@@ -53,7 +54,7 @@ export default async function InformePage({ params }: { params: Promise<{ id: st
         </div>
       </div>
 
-      <ChainProgress status={r.status} currentStep={r.currentStep} hasManager={Boolean(r.user.managerId)} approvals={r.approvals} />
+      <ChainProgress status={r.status} currentStep={r.currentStep} flow={flow} approvals={r.approvals} />
 
       {r.status === "RECHAZADO" && (
         <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
@@ -119,7 +120,7 @@ export default async function InformePage({ params }: { params: Promise<{ id: st
                       <tr className="bg-slate-50">
                         <td colSpan={reviewing ? 6 : 5} className="text-sm text-red-700">
                           <div className="flex flex-wrap items-center justify-between gap-2">
-                            <span>✕ Rechazado por {e.rejectedBy}{e.rejectedStep ? ` (${STEPS[e.rejectedStep] ?? e.rejectedStep})` : ""}: {e.rejectedReason}</span>
+                            <span>✕ Rechazado por {e.rejectedBy}{e.rejectedStep ? ` (${stepLabel(r, e.rejectedStep)})` : ""}: {e.rejectedReason}</span>
                             {reviewing && e.rejectedStep === r.currentStep && (
                               <form action={restoreExpense.bind(null, r.id, e.id)}>
                                 <button className="text-xs text-slate-600 underline hover:text-slate-900">Deshacer</button>
@@ -137,7 +138,7 @@ export default async function InformePage({ params }: { params: Promise<{ id: st
             </table>
           </div>
 
-          {reviewing && <DecisionForm kind="report" id={r.id} step={r.currentStep!} />}
+          {reviewing && <DecisionForm kind="report" id={r.id} step={stepLabel(r, r.currentStep)} />}
 
           {editable && (
             <>
@@ -156,7 +157,7 @@ export default async function InformePage({ params }: { params: Promise<{ id: st
             </>
           )}
         </div>
-        <History items={r.approvals} />
+        <History items={r.approvals} flow={flow} />
       </div>
     </div>
   );

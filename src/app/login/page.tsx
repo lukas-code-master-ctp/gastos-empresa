@@ -17,7 +17,7 @@ export default async function LoginPage() {
         <Logo className="relative text-[clamp(48px,7vw,88px)]" />
         <div className="relative mt-16 max-w-md space-y-4 lg:mt-0">
           <p className="font-display text-3xl font-bold leading-tight tracking-[-0.03em] text-white md:text-4xl">Rinde tus gastos sin perseguir boletas.</p>
-          <p className="text-slate-300">Sube la boleta por la web o por WhatsApp, la IA la lee y el informe recorre jefe directo, contabilidad, controller y tesorería solo.</p>
+          <p className="text-slate-300">Sube la boleta por la web o por WhatsApp, la IA la lee y el informe recorre solo el flujo de aprobación de tu empresa hasta tesorería.</p>
         </div>
         <div className="relative mt-10 font-mono text-[11px] uppercase tracking-[0.12em] text-slate-400">Reembolsos · Fondo fijo · Caja chica</div>
       </section>

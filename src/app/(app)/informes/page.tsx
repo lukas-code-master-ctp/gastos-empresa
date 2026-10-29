@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
-import { clp, fecha, REPORT_TYPES, STEPS } from "@/lib/format";
-import { reportTotal } from "@/lib/workflow";
+import { clp, fecha, REPORT_TYPES } from "@/lib/format";
+import { reportTotal, stepLabel } from "@/lib/workflow";
 import { StatusBadge } from "@/components/Badge";
 
 export default async function InformesPage() {
   const user = await requireUser();
-  const reports = await db.report.findMany({ where: { userId: user.id }, include: { expenses: true }, orderBy: { createdAt: "desc" } });
+  const reports = await db.report.findMany({ where: { userId: user.id }, include: { expenses: true, user: true }, orderBy: { createdAt: "desc" } });
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -26,7 +26,7 @@ export default async function InformesPage() {
                 <td>{fecha(r.createdAt)}</td>
                 <td className="text-right">{r.expenses.length}</td>
                 <td className="text-right tabular-nums">{clp(reportTotal(r.expenses))}</td>
-                <td><StatusBadge status={r.status} />{r.currentStep && <div className="text-xs text-slate-500">{STEPS[r.currentStep]}</div>}</td>
+                <td><StatusBadge status={r.status} />{r.currentStep && <div className="text-xs text-slate-500">{stepLabel(r, r.currentStep)}</div>}</td>
               </tr>
             ))}
           </tbody>

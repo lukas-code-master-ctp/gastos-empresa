@@ -21,7 +21,7 @@ export default async function NuevoFondo({ searchParams }: { searchParams: Promi
           <label className="label">Motivo</label>
           <textarea name="reason" rows={3} className="input" placeholder="Ej: Gastos de terreno semana del 3 al 7 de noviembre" required />
         </div>
-        <p className="text-xs text-slate-500">La solicitud pasa por el ciclo de aprobación (jefe directo, contabilidad, controller) y luego tesorería entrega el fondo.</p>
+        <p className="text-xs text-slate-500">La solicitud pasa por el flujo de aprobación de tu empresa y luego tesorería entrega el fondo.</p>
         <button className="btn">Enviar solicitud</button>
       </form>
     </div>

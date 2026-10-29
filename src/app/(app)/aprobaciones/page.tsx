@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
-import { pendingApprovals, reportTotal } from "@/lib/workflow";
-import { clp, fecha, FUND_TYPES, REPORT_TYPES, STEPS } from "@/lib/format";
+import { pendingApprovals, reportTotal, stepLabel } from "@/lib/workflow";
+import { clp, fecha, FUND_TYPES, REPORT_TYPES } from "@/lib/format";
 
 export default async function AprobacionesPage() {
   const user = await requireUser();
@@ -19,7 +19,7 @@ export default async function AprobacionesPage() {
                 <td><Link href={`/informes/${r.id}`} className="font-medium text-emerald-700 hover:underline">{r.title}</Link><div className="text-xs text-slate-500">{REPORT_TYPES[r.type]} · {r.expenses.length} gastos</div></td>
                 <td>{r.user.name}</td>
                 <td>{fecha(r.submittedAt)}</td>
-                <td>{STEPS[r.currentStep!]}</td>
+                <td>{stepLabel(r, r.currentStep)}</td>
                 <td className="text-right tabular-nums">{clp(reportTotal(r.expenses))}</td>
               </tr>
             ))}
@@ -28,7 +28,7 @@ export default async function AprobacionesPage() {
                 <td><Link href={`/fondos/${f.id}`} className="font-medium text-emerald-700 hover:underline">{f.reason}</Link><div className="text-xs text-slate-500">Solicitud de {FUND_TYPES[f.type].toLowerCase()}</div></td>
                 <td>{f.user.name}</td>
                 <td>{fecha(f.createdAt)}</td>
-                <td>{STEPS[f.currentStep!]}</td>
+                <td>{stepLabel(f, f.currentStep)}</td>
                 <td className="text-right tabular-nums">{clp(f.amount)}</td>
               </tr>
             ))}
