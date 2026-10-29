@@ -3,10 +3,10 @@ import path from "path";
 import { randomUUID } from "crypto";
 import { get, put } from "@vercel/blob";
 
-// Boletas y comprobantes. Con BLOB_READ_WRITE_TOKEN (Vercel) se guardan en Vercel Blob privado;
+// Boletas y comprobantes. Con BLOB_STORE_ID (store conectado, auth OIDC) o BLOB_READ_WRITE_TOKEN se guardan en Vercel Blob privado;
 // sin él, en la carpeta local uploads/ (desarrollo).
 const UPLOAD_DIR = path.join(process.cwd(), "uploads");
-const blobEnabled = () => !!process.env.BLOB_READ_WRITE_TOKEN;
+export const blobEnabled = () => !!(process.env.BLOB_STORE_ID || process.env.BLOB_READ_WRITE_TOKEN);
 
 export async function saveFile(data: Buffer, mime: string) {
   const ext = mime === "application/pdf" ? "pdf" : mime.split("/")[1] ?? "bin";

@@ -15,9 +15,9 @@ export default function Uploader() {
     const form = new FormData();
     form.append("file", file);
     const res = await fetch("/api/ocr", { method: "POST", body: form });
-    const body = await res.json();
+    const body = await res.json().catch(() => ({}));
     if (!res.ok) {
-      setError(body.error ?? "Error al subir");
+      setError(body.error ?? "No se pudo subir la boleta. Intenta de nuevo.");
       setBusy(false);
       return;
     }
