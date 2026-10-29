@@ -4,7 +4,9 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { clearSession, requireUser, setSession } from "@/lib/auth";
-import { canApprove, expenseEditMode, firstStep, missingFields, nextStep, reportTotal } from "@/lib/workflow";
+import { canApprove, expenseEditMode, missingFields, nextStep, reportTotal, startFlow } from "@/lib/workflow";
+import { kindsOf, stepDefSchema } from "@/lib/flows";
+import { z } from "zod";
 import { clp, fecha } from "@/lib/format";
 import { registerInErp } from "@/lib/erp";
 import { saveFile } from "@/lib/storage";
@@ -149,7 +151,7 @@ export async function submitReport(id: string) {
     throw new Error("El total supera el saldo de la caja chica");
   await db.report.update({
     where: { id },
-    data: { status: "EN_APROBACION", currentStep: firstStep(user), rejectReason: null, submittedAt: new Date() },
+    data: { status: "EN_APROBACION", ...(await startFlow(user.companyId, r.type, user, reportTotal(r.expenses))), rejectReason: null, submittedAt: new Date() },
   });
   await db.approval.create({ data: { reportId: id, step: "ENVIO", decision: "ENVIADO", userId: user.id } });
   revalidatePath(`/informes/${id}`);
@@ -178,7 +180,7 @@ export async function decide(kind: "report" | "fund", id: string, formData: Form
     kind === "report"
       ? await db.report.findUniqueOrThrow({ where: { id }, include: { user: true } })
       : await db.fund.findUniqueOrThrow({ where: { id }, include: { user: true } });
-  if (item.status !== "EN_APROBACION" || !canApprove(user, item.currentStep, item.user))
+  if (item.status !== "EN_APROBACION" || !canApprove(user, item))
     throw new Error("No te corresponde aprobar este paso");
   const step = item.currentStep!;
 
@@ -191,7 +193,7 @@ export async function decide(kind: "report" | "fund", id: string, formData: Form
     });
   }
 
-  const next = approve ? nextStep(step) : null;
+  const next = approve ? nextStep(item, step) : null;
   const data = approve
     ? next
       ? { currentStep: next }
@@ -227,7 +229,7 @@ export async function rejectExpense(reportId: string, expenseId: string, formDat
   const comment = str(formData, "comment");
   if (!comment) throw new Error("Debes indicar el motivo del rechazo");
   const r = await db.report.findUniqueOrThrow({ where: { id: reportId }, include: { user: true } });
-  if (r.status !== "EN_APROBACION" || !canApprove(user, r.currentStep, r.user)) throw new Error("No te corresponde revisar este paso");
+  if (r.status !== "EN_APROBACION" || !canApprove(user, r)) throw new Error("No te corresponde revisar este paso");
   const e = await db.expense.findFirstOrThrow({ where: { id: expenseId, reportId, rejectedAt: null } });
   const step = r.currentStep!;
   await db.expense.update({
@@ -250,7 +252,7 @@ export async function rejectExpense(reportId: string, expenseId: string, formDat
 export async function restoreExpense(reportId: string, expenseId: string) {
   const user = await requireUser();
   const r = await db.report.findUniqueOrThrow({ where: { id: reportId }, include: { user: true } });
-  if (r.status !== "EN_APROBACION" || !canApprove(user, r.currentStep, r.user)) throw new Error("No te corresponde revisar este paso");
+  if (r.status !== "EN_APROBACION" || !canApprove(user, r)) throw new Error("No te corresponde revisar este paso");
   const e = await db.expense.findFirstOrThrow({ where: { id: expenseId, reportId, rejectedStep: r.currentStep } });
   await db.expense.update({ where: { id: e.id }, data: { rejectedAt: null, rejectedReason: null, rejectedStep: null, rejectedBy: null } });
   await db.approval.create({ data: { reportId, step: r.currentStep!, decision: "GASTO_RESTAURADO", comment: e.merchant ?? "gasto", userId: user.id } });
@@ -265,10 +267,59 @@ export async function createFund(formData: FormData) {
   const reason = str(formData, "reason");
   if (!amount || amount <= 0 || !reason) throw new Error("Monto y motivo son obligatorios");
   const fund = await db.fund.create({
-    data: { type: String(formData.get("type")), userId: user.id, amount, reason, currentStep: firstStep(user) },
+    data: { type: String(formData.get("type")), userId: user.id, amount, reason, ...(await startFlow(user.companyId, "SOLICITUD_FONDO", user, amount)) },
   });
   await db.approval.create({ data: { fundId: fund.id, step: "ENVIO", decision: "ENVIADO", userId: user.id } });
   redirect(`/fondos/${fund.id}`);
+}
+
+// ---------- Flujos de aprobación (admin) ----------
+
+async function requireAdmin() {
+  const user = await requireUser();
+  if (user.role !== "ADMIN") throw new Error("Solo el administrador");
+  return user;
+}
+
+// Guarda un flujo nuevo (id null) o editado. Los informes ya enviados conservan el flujo con que partieron.
+export async function saveFlow(id: string | null, formData: FormData) {
+  const user = await requireAdmin();
+  const name = str(formData, "name");
+  if (!name) throw new Error("Ponle un nombre al flujo");
+  const kinds = kindsOf(formData.getAll("appliesTo").map(String).join(","));
+  if (kinds.length === 0) throw new Error("Elige al menos un tipo");
+  const steps = z.array(stepDefSchema).min(1, "Agrega al menos un paso").max(12).parse(JSON.parse(String(formData.get("steps") ?? "[]")));
+  for (const s of steps) {
+    if (s.kind === "ROLE" && !s.role) throw new Error("Falta elegir el rol de un paso");
+    if (s.kind === "USER" && !s.userId) throw new Error("Falta elegir la persona de un paso");
+  }
+  const userIds = steps.flatMap((s) => (s.kind === "USER" ? [s.userId!] : []));
+  if (userIds.length && (await db.user.count({ where: { id: { in: userIds }, companyId: user.companyId } })) !== new Set(userIds).size)
+    throw new Error("Hay una persona que no es de la empresa");
+
+  // Cada tipo usa un solo flujo: si otro flujo lo tenía, se le quita
+  const others = await db.approvalFlow.findMany({ where: { companyId: user.companyId, ...(id ? { NOT: { id } } : {}) } });
+  for (const o of others) {
+    const left = kindsOf(o.appliesTo).filter((k) => !kinds.includes(k));
+    if (left.length !== kindsOf(o.appliesTo).length) await db.approvalFlow.update({ where: { id: o.id }, data: { appliesTo: left.join(",") } });
+  }
+  const data = { name, appliesTo: kinds.join(","), steps: JSON.stringify(steps) };
+  if (id) {
+    const f = await db.approvalFlow.findFirstOrThrow({ where: { id, companyId: user.companyId } });
+    await db.approvalFlow.update({ where: { id: f.id }, data });
+  } else {
+    await db.approvalFlow.create({ data: { ...data, companyId: user.companyId } });
+  }
+  revalidatePath("/admin/flujos");
+  redirect("/admin/flujos");
+}
+
+// Borrar un flujo: sus tipos vuelven al flujo estándar
+export async function deleteFlow(id: string) {
+  const user = await requireAdmin();
+  await db.approvalFlow.deleteMany({ where: { id, companyId: user.companyId } });
+  revalidatePath("/admin/flujos");
+  redirect("/admin/flujos");
 }
 
 // ---------- Tesorería ----------

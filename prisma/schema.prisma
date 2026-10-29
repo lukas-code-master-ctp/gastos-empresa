@@ -15,7 +15,23 @@ model Company {
   users      User[]
   projects   Project[]
   categories Category[]
+  flows      ApprovalFlow[]
   createdAt  DateTime   @default(now())
+}
+
+// Flujo de aprobación configurable por empresa (lo arma el admin).
+// Sin flujo propio para un tipo, se usa el estándar: jefe directo → contabilidad → controller.
+model ApprovalFlow {
+  id        String   @id @default(cuid())
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id])
+  name      String
+  // Tipos a los que aplica, separados por coma: REEMBOLSO,FONDO_FIJO,CAJA_CHICA,SOLICITUD_FONDO
+  appliesTo String
+  // JSON: [{ id, kind: JEFE | ROLE | USER, role?, userId?, label?, minAmount? }]
+  steps     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model User {
@@ -99,6 +115,8 @@ model Fund {
   // EN_APROBACION | RECHAZADO | APROBADO | ACTIVO | CERRADO
   status       String     @default("EN_APROBACION")
   currentStep  String?    @default("JEFE")
+  // Pasos del flujo con que se envió (JSON). Null = flujo estándar.
+  flowSteps    String?
   rejectReason String?
   reports      Report[]
   approvals    Approval[]
@@ -117,7 +135,9 @@ model Report {
   fund             Fund?      @relation(fields: [fundId], references: [id])
   // BORRADOR | EN_APROBACION | RECHAZADO | APROBADO | CERRADO
   status           String     @default("BORRADOR")
-  currentStep      String? // JEFE | CONTABILIDAD | CONTROLLER
+  currentStep      String? // id del paso del flujo (JEFE | CONTABILIDAD | CONTROLLER en el estándar)
+  // Pasos del flujo con que se envió (JSON). Null = flujo estándar.
+  flowSteps        String?
   rejectReason     String?
   // Resultado de tesorería
   treasuryAction   String? // DEPOSITO_REEMBOLSO | DESCUENTO_CAJA | CIERRE_CUADRADO | DEVOLUCION_SOLICITADA | DEPOSITO_DIFERENCIA

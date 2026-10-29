@@ -1,28 +1,67 @@
 import { db } from "./db";
-
-// Cadena de aprobación del diagrama: Jefe directo → Contabilidad → Controller.
-export const CHAIN = ["JEFE", "CONTABILIDAD", "CONTROLLER"] as const;
-export type Step = (typeof CHAIN)[number];
+import { approverLabel, parseSteps, STANDARD_STEPS, type FlowStep, type StepDef } from "./flows";
 
 type Approver = { id: string; role: string };
-type Owner = { managerId: string | null };
+type Owner = { id: string; managerId: string | null };
+// Informe o solicitud de fondo en el flujo
+type InFlow = { currentStep: string | null; flowSteps: string | null; user: Owner };
 
-export function firstStep(owner: Owner): Step {
-  // Si quien rinde no tiene jefe directo, parte en contabilidad.
-  return owner.managerId ? "JEFE" : "CONTABILIDAD";
+// Pasos que aplican a quien rinde y al monto. El jefe directo se salta si no tiene jefe,
+// y nadie aprueba lo propio.
+function resolveSteps(defs: StepDef[], owner: Owner, amount: number, names: Map<string, string>): FlowStep[] {
+  return defs
+    .filter((s) => (s.kind === "JEFE" ? Boolean(owner.managerId) : true))
+    .filter((s) => !(s.kind === "USER" && (!s.userId || s.userId === owner.id || !names.has(s.userId))))
+    .filter((s) => !s.minAmount || amount >= s.minAmount)
+    .map((s) => ({ id: s.id, kind: s.kind, role: s.role, userId: s.userId, label: approverLabel(s, (id) => names.get(id)) }));
 }
 
-export function nextStep(step: string): Step | null {
-  const i = CHAIN.indexOf(step as Step);
-  return i >= 0 && i < CHAIN.length - 1 ? CHAIN[i + 1] : null;
+// Pasos del informe o fondo: los que se guardaron al enviarlo, o el estándar si se envió antes
+export function flowOf(item: { flowSteps: string | null; user: Owner }): FlowStep[] {
+  if (item.flowSteps) {
+    try {
+      return JSON.parse(item.flowSteps) as FlowStep[];
+    } catch {}
+  }
+  return resolveSteps(STANDARD_STEPS, item.user, 0, new Map());
 }
 
-export function canApprove(user: Approver, step: string | null, owner: Owner & { id: string }) {
-  if (!step || user.id === owner.id) return false;
+export function stepLabel(item: { flowSteps: string | null; user: Owner }, stepId: string | null) {
+  if (!stepId) return "";
+  return flowOf(item).find((s) => s.id === stepId)?.label ?? stepId;
+}
+
+// Al enviar: elige el flujo de la empresa para ese tipo, lo resuelve y lo deja guardado
+export async function startFlow(companyId: string, kind: string, owner: Owner, amount: number) {
+  const flows = await db.approvalFlow.findMany({ where: { companyId }, orderBy: { createdAt: "asc" } });
+  const flow = flows.find((f) => f.appliesTo.split(",").includes(kind));
+  const defs = flow ? parseSteps(flow.steps) : STANDARD_STEPS;
+  const userIds = defs.flatMap((s) => (s.kind === "USER" && s.userId ? [s.userId] : []));
+  const users = userIds.length ? await db.user.findMany({ where: { id: { in: userIds }, companyId } }) : [];
+  let steps = resolveSteps(defs, owner, amount, new Map(users.map((u) => [u.id, u.name])));
+  // Si ningún paso aplica, igual lo revisa alguien: el admin
+  if (steps.length === 0) steps = [{ id: "ADMIN", kind: "ROLE", role: "ADMIN", label: "Administrador" }];
+  return { currentStep: steps[0].id, flowSteps: JSON.stringify(steps) };
+}
+
+export function nextStep(item: { flowSteps: string | null; user: Owner }, step: string): string | null {
+  const steps = flowOf(item);
+  const i = steps.findIndex((s) => s.id === step);
+  return i >= 0 && i < steps.length - 1 ? steps[i + 1].id : null;
+}
+
+export function canApprove(user: Approver, item: InFlow) {
+  const step = item.currentStep && flowOf(item).find((s) => s.id === item.currentStep);
+  if (!step || user.id === item.user.id) return false;
   if (user.role === "ADMIN") return true;
-  if (step === "JEFE") return owner.managerId === user.id;
-  return user.role === step;
+  if (step.kind === "JEFE") return item.user.managerId === user.id;
+  if (step.kind === "USER") return step.userId === user.id;
+  return user.role === step.role;
 }
+
+// ¿Aparece esta persona en algún paso? (para dejarla ver el informe)
+export const inFlow = (user: Approver, item: InFlow) =>
+  flowOf(item).some((s) => (s.kind === "USER" ? s.userId === user.id : s.kind === "ROLE" ? s.role === user.role : item.user.managerId === user.id));
 
 // Solo cuentan los gastos que no fueron rechazados
 export const reportTotal = (expenses: { amount: number | null; rejectedAt?: Date | null }[]) =>
@@ -68,21 +107,12 @@ export function missingFields(e: {
   return m;
 }
 
-// Lo que el usuario tiene pendiente de aprobar, según su rol.
+// Lo que el usuario tiene pendiente de aprobar, según el paso en que va cada informe o fondo.
 export async function pendingApprovals(user: Approver & { companyId: string }) {
-  const stepFilter =
-    user.role === "ADMIN"
-      ? {}
-      : {
-          OR: [
-            { currentStep: "JEFE", user: { managerId: user.id } },
-            ...(["CONTABILIDAD", "CONTROLLER"].includes(user.role) ? [{ currentStep: user.role }] : []),
-          ],
-        };
   const base = { status: "EN_APROBACION", user: { companyId: user.companyId }, NOT: { userId: user.id } };
   const [reports, funds] = await Promise.all([
-    db.report.findMany({ where: { ...base, ...stepFilter }, include: { user: true, expenses: true }, orderBy: { submittedAt: "asc" } }),
-    db.fund.findMany({ where: { ...base, ...stepFilter }, include: { user: true }, orderBy: { createdAt: "asc" } }),
+    db.report.findMany({ where: base, include: { user: true, expenses: true }, orderBy: { submittedAt: "asc" } }),
+    db.fund.findMany({ where: base, include: { user: true }, orderBy: { createdAt: "asc" } }),
   ]);
-  return { reports, funds };
+  return { reports: reports.filter((r) => canApprove(user, r)), funds: funds.filter((f) => canApprove(user, f)) };
 }

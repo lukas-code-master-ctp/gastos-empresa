@@ -1,20 +1,21 @@
 import { decide } from "@/app/actions";
 import { clp, fecha, ROLES, STEPS, TREASURY } from "@/lib/format";
+import type { FlowStep } from "@/lib/flows";
 import { RejectButton } from "./RejectButton";
 import { Icon } from "./Icons";
 
 type ApprovalRow = { id: string; step: string; decision: string; comment: string | null; attachmentPath?: string | null; createdAt: Date; user: { name: string } };
 
-// Barra de progreso de la cadena: Envío → Jefe directo → Contabilidad → Controller → Tesorería
-export function ChainProgress({ status, currentStep, hasManager, approvals }: { status: string; currentStep: string | null; hasManager: boolean; approvals: { step: string; decision: string }[] }) {
-  const steps = [...(hasManager ? ["JEFE"] : []), "CONTABILIDAD", "CONTROLLER"];
+// Barra de progreso del flujo de la empresa (p. ej. Jefe directo → Contabilidad → Controller) → Tesorería
+export function ChainProgress({ status, currentStep, flow, approvals }: { status: string; currentStep: string | null; flow: FlowStep[]; approvals: { step: string; decision: string }[] }) {
+  const steps = flow.map((s) => s.id);
   // Si se rechazó, se marca en rojo el paso de quien lo hizo
   const stopped = status === "RECHAZADO";
   const stop = stopped ? approvals.findLast((a) => a.decision === "RECHAZADO") : undefined;
   const stopIdx = stop ? steps.indexOf(stop.step) : -1;
   const idx = currentStep ? steps.indexOf(currentStep) : status === "EN_APROBACION" ? 0 : -1;
   const done = (i: number) => ["APROBADO", "ACTIVO", "CERRADO", "DEVOLUCION_PENDIENTE"].includes(status) || (status === "EN_APROBACION" && i < idx) || (stopped && i < stopIdx);
-  const items = [...steps.map((s) => STEPS[s]), "Tesorería"];
+  const items = [...flow.map((s) => s.label), "Tesorería"];
   return (
     <ol className="card flex flex-wrap items-start gap-y-4 px-5 py-4 sm:flex-nowrap" aria-label="Flujo de aprobación">
       {items.map((label, i) => {
@@ -24,7 +25,7 @@ export function ChainProgress({ status, currentStep, hasManager, approvals }: { 
         const stoppedHere = i === stopIdx;
         const state = ok ? "Listo" : current ? "En curso" : stoppedHere ? "Rechazado" : "Pendiente";
         return (
-          <li key={label} className="flex min-w-0 flex-1 basis-1/2 items-start gap-3 sm:basis-0" aria-current={current ? "step" : undefined}>
+          <li key={`${i}-${label}`} className="flex min-w-0 flex-1 basis-1/2 items-start gap-3 sm:basis-0" aria-current={current ? "step" : undefined}>
             <div className="flex flex-col items-center">
               <span
                 className={`grid size-8 shrink-0 place-items-center rounded-full border-2 transition-colors duration-500 ${
@@ -57,12 +58,13 @@ function treasuryText(comment: string) {
   return amount ? `${label} (${clp(Number(amount))})` : label;
 }
 
-export function History({ items }: { items: ApprovalRow[] }) {
+export function History({ items, flow = [] }: { items: ApprovalRow[]; flow?: FlowStep[] }) {
+  const label = (step: string) => flow.find((s) => s.id === step)?.label ?? STEPS[step] ?? step;
   const text = (a: ApprovalRow) =>
     a.decision === "ENVIADO" ? "Envió a aprobación"
-    : a.decision === "APROBADO" ? `Aprobó (${STEPS[a.step]})`
-    : a.decision === "RECHAZADO" ? `Rechazó (${STEPS[a.step]})`
-    : a.decision === "GASTO_RECHAZADO" ? `Rechazó un gasto (${STEPS[a.step]})`
+    : a.decision === "APROBADO" ? `Aprobó (${label(a.step)})`
+    : a.decision === "RECHAZADO" ? `Rechazó (${label(a.step)})`
+    : a.decision === "GASTO_RECHAZADO" ? `Rechazó un gasto (${label(a.step)})`
     : a.decision === "GASTO_RESTAURADO" ? `Deshizo el rechazo de ${a.comment}`
     : a.decision === "EDITADO" ? `Editó un gasto (${ROLES[a.step] ?? a.step})`
     : treasuryText(a.comment ?? "");
@@ -89,11 +91,11 @@ export function History({ items }: { items: ApprovalRow[] }) {
   );
 }
 
-export function DecisionForm({ kind, id, step }: { kind: "report" | "fund"; id: string; step: string }) {
+export function DecisionForm({ kind, id, step }: { kind: "report" | "fund"; id: string; step: string /* nombre del paso */ }) {
   const action = decide.bind(null, kind, id);
   return (
     <div className="card space-y-3 border-amber-300">
-      <h2 className="font-semibold">Te toca revisar: {STEPS[step]}</h2>
+      <h2 className="font-semibold">Te toca revisar: {step}</h2>
       {kind === "report" && (
         <p className="text-sm text-slate-600">Puedes rechazar gastos puntuales desde su fila. Al aprobar, el informe sigue con los gastos no rechazados.</p>
       )}

@@ -14,6 +14,10 @@ const paths: Record<string, React.ReactNode> = {
   arrow: <path d="M5 12h14M13 6l6 6-6 6" />,
   x: <path d="M6 6l12 12M18 6 6 18" />,
   ok: <path d="m5 12.5 4.5 4.5L19 7.5" />,
+  flow: <><circle cx="5.5" cy="6" r="2.5" /><circle cx="18.5" cy="12" r="2.5" /><circle cx="5.5" cy="18" r="2.5" /><path d="M8 6h3.5a3 3 0 0 1 3 3v0a3 3 0 0 0 1.5 2.6M8 18h3.5a3 3 0 0 0 3-3v0a3 3 0 0 1 1.5-2.6" /></>,
+  up: <path d="m6 15 6-6 6 6" />,
+  down: <path d="m6 9 6 6 6-6" />,
+  trash: <><path d="M4 7h16M10 11v6M14 11v6" /><path d="M6 7l1 12.5A1.5 1.5 0 0 0 8.5 21h7a1.5 1.5 0 0 0 1.5-1.5L18 7M9 7V4.5A1.5 1.5 0 0 1 10.5 3h3A1.5 1.5 0 0 1 15 4.5V7" /></>,
 };
 
 export type IconName = keyof typeof paths;

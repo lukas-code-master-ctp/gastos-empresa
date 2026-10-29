@@ -6,7 +6,7 @@ import { closeCajaChica, confirmCajaReturn, deliverFund } from "@/app/actions";
 import { ConfirmSubmit } from "@/components/ConfirmSubmit";
 import { ReceiptInput } from "@/components/Treasury";
 import { clp, fecha, FUND_TYPES } from "@/lib/format";
-import { canApprove, reportTotal } from "@/lib/workflow";
+import { canApprove, flowOf, reportTotal, stepLabel } from "@/lib/workflow";
 import { StatusBadge } from "@/components/Badge";
 import { ChainProgress, DecisionForm, History } from "@/components/Workflow";
 
@@ -19,7 +19,8 @@ export default async function FondoPage({ params }: { params: Promise<{ id: stri
   });
   if (!f || f.user.companyId !== user.companyId) notFound();
   const mine = f.userId === user.id;
-  const isApprover = canApprove(user, f.currentStep, f.user);
+  const isApprover = canApprove(user, f);
+  const flow = flowOf(f);
   const isTreasury = ["TESORERIA", "ADMIN"].includes(user.role);
   const pendingReports = f.reports.some((r) => ["EN_APROBACION", "APROBADO"].includes(r.status));
 
@@ -37,7 +38,7 @@ export default async function FondoPage({ params }: { params: Promise<{ id: stri
           {["ACTIVO", "DEVOLUCION_PENDIENTE"].includes(f.status) && f.type === "CAJA_CHICA" && <div className="text-sm text-slate-500">Saldo {clp(f.balance)}</div>}
         </div>
       </div>
-      <ChainProgress status={f.status} currentStep={f.currentStep} hasManager={Boolean(f.user.managerId)} approvals={f.approvals} />
+      <ChainProgress status={f.status} currentStep={f.currentStep} flow={flow} approvals={f.approvals} />
 
       {f.status === "RECHAZADO" && (
         <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
@@ -45,7 +46,7 @@ export default async function FondoPage({ params }: { params: Promise<{ id: stri
         </div>
       )}
 
-      {isApprover && f.status === "EN_APROBACION" && <DecisionForm kind="fund" id={f.id} step={f.currentStep!} />}
+      {isApprover && f.status === "EN_APROBACION" && <DecisionForm kind="fund" id={f.id} step={stepLabel(f, f.currentStep)} />}
 
       {isTreasury && f.status === "APROBADO" && (
         <form action={deliverFund.bind(null, f.id)} className="card space-y-3 border-blue-300">
@@ -100,7 +101,7 @@ export default async function FondoPage({ params }: { params: Promise<{ id: stri
             </ul>
           )}
         </div>
-        <History items={f.approvals} />
+        <History items={f.approvals} flow={flow} />
       </div>
     </div>
   );

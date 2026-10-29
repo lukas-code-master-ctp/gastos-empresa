@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
-import { clp, fecha, FUND_TYPES, STEPS } from "@/lib/format";
+import { stepLabel } from "@/lib/workflow";
+import { clp, fecha, FUND_TYPES } from "@/lib/format";
 import { StatusBadge } from "@/components/Badge";
 
 export default async function FondosPage() {
   const user = await requireUser();
-  const funds = await db.fund.findMany({ where: { userId: user.id }, orderBy: { createdAt: "desc" } });
+  const funds = await db.fund.findMany({ where: { userId: user.id }, include: { user: true }, orderBy: { createdAt: "desc" } });
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -25,7 +26,7 @@ export default async function FondosPage() {
                 <td>{fecha(f.createdAt)}</td>
                 <td className="text-right tabular-nums">{clp(f.amount)}</td>
                 <td className="text-right tabular-nums">{["ACTIVO", "DEVOLUCION_PENDIENTE"].includes(f.status) ? clp(f.balance) : "—"}</td>
-                <td><StatusBadge status={f.status} />{f.currentStep && f.status === "EN_APROBACION" && <div className="text-xs text-slate-500">{STEPS[f.currentStep]}</div>}</td>
+                <td><StatusBadge status={f.status} />{f.currentStep && f.status === "EN_APROBACION" && <div className="text-xs text-slate-500">{stepLabel(f, f.currentStep)}</div>}</td>
               </tr>
             ))}
           </tbody>
