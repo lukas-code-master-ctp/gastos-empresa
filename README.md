@@ -27,7 +27,7 @@ npm run setup               # crea la base SQLite y carga datos de demo
 npm run dev                 # http://localhost:3000
 ```
 
-En `/login` eliges un usuario de demo (Ana y Bruno son empleados con jefe Jorge; Pedro es contabilidad, Carla controller, Tamara tesorería).
+Sin las variables de Google, en `/login` eliges un usuario de demo (Ana y Bruno son empleados con jefe Jorge; Pedro es contabilidad, Carla controller, Tamara tesorería).
 
 ## Publicar en Vercel
 
@@ -39,9 +39,19 @@ Variables en Vercel (Settings → Environment Variables):
 |---|---|
 | `POSTGRES_PRISMA_URL`, `POSTGRES_URL_NON_POOLING` | Postgres de Supabase (las crea la integración al conectar la base; también sirve `DATABASE_URL` a mano o Neon) |
 | `BLOB_READ_WRITE_TOKEN` | Vercel Blob privado para boletas y comprobantes (lo crea el store de Blob) |
-| `APP_PASSWORD` | Clave que pide el navegador antes de entrar, mientras el login sea de demo |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Ingreso con Google (OAuth). Con ellas el selector de demo se apaga y la clave `APP_PASSWORD` deja de pedirse |
+| `ADMIN_EMAILS` | Correos (separados por coma) que entran como administrador la primera vez aunque no estén creados |
+| `AUTH_SECRET` | Firma de la cookie de sesión (opcional: si falta se usa `GOOGLE_CLIENT_SECRET`) |
+| `DEMO_LOGIN` | `1` para mostrar también el selector de demo con Google activo (opcional) |
+| `APP_PASSWORD` | Clave que pide el navegador antes de entrar, solo mientras el login sea de demo |
 | `OPENROUTER_API_KEY` | Lectura de boletas con IA vía OpenRouter (opcional) |
 | `OPENROUTER_MODEL` | Modelo de visión a usar (opcional, por defecto `google/gemini-3.1-flash-lite`; varios separados por coma hacen de respaldo) |
+
+## Ingreso con Google
+
+Cada persona entra con su cuenta Google. Solo entran los correos que el administrador agregó en `/admin/usuarios` (ahí se elige rol y jefe directo); los de `ADMIN_EMAILS` entran como administradores la primera vez. La sesión es una cookie firmada de 30 días (`src/lib/auth.ts`, rutas en `src/app/api/auth/google`).
+
+En Google Cloud Console (APIs y servicios → Credenciales → ID de cliente OAuth, tipo "Aplicación web") la URI de redireccionamiento autorizada es `https://app.rindefi.cl/api/auth/google/callback` (y `http://localhost:3000/api/auth/google/callback` para local).
 
 ## Diseño
 
@@ -53,9 +63,8 @@ Next.js 15 (App Router, server actions) · TypeScript · Tailwind · Prisma (SQL
 
 ## Pendiente para producción
 
-- Autenticación real (SSO / NextAuth) en vez del selector de usuario de demo.
 - Conector real del ERP que usen (hoy webhook genérico con el asiento por línea: cuenta contable por categoría y centro de costo por proyecto).
 - Número de WhatsApp Business y credenciales de Meta (`WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_VERIFY_TOKEN`).
-- Mantenedores de empresas, usuarios, categorías y proyectos (hoy vienen del seed).
+- Mantenedores de empresas, categorías y proyectos (hoy vienen del seed; usuarios ya se administran en `/admin/usuarios`).
 - Notificaciones por correo/WhatsApp al aprobador de turno.
 - Validación de RUT y detección de boletas duplicadas.

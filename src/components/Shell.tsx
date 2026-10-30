@@ -1,6 +1,6 @@
 import { logout } from "@/app/actions";
 import { ROLES } from "@/lib/format";
-import { requireUser } from "@/lib/auth";
+import { demoEnabled, requireUser } from "@/lib/auth";
 import { pendingApprovals } from "@/lib/workflow";
 import { Logo } from "./Brand";
 import { Icon } from "./Icons";
@@ -21,7 +21,12 @@ export default async function Shell({ children }: { children: React.ReactNode })
     { href: "/whatsapp", label: "WhatsApp (simulador)", icon: "chat" },
     ...(approver ? [{ href: "/aprobaciones", label: "Aprobaciones", icon: "check" as const, badge: pendingCount }] : []),
     ...(treasury ? [{ href: "/tesoreria", label: "Tesorería", icon: "bank" as const }] : []),
-    ...(user.role === "ADMIN" ? [{ href: "/admin/flujos", label: "Flujos de aprobación", icon: "flow" as const }] : []),
+    ...(user.role === "ADMIN"
+      ? [
+          { href: "/admin/usuarios", label: "Usuarios", icon: "users" as const },
+          { href: "/admin/flujos", label: "Flujos de aprobación", icon: "flow" as const },
+        ]
+      : []),
   ];
   const initials = user.name.split(" ").map((p) => p[0]).slice(0, 2).join("");
   return (
@@ -43,7 +48,7 @@ export default async function Shell({ children }: { children: React.ReactNode })
           </div>
           <form action={logout}>
             <button className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-lg px-1 py-1 text-xs text-slate-300 transition-colors hover:text-mandarina-400">
-              <Icon name="logout" className="size-4" /> Cambiar de usuario
+              <Icon name="logout" className="size-4" /> {demoEnabled() ? "Cambiar de usuario" : "Cerrar sesión"}
             </button>
           </form>
         </div>
