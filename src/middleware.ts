@@ -2,10 +2,10 @@ import { NextResponse, type NextRequest } from "next/server";
 
 // Mientras el login sea de demo (cualquiera elige usuario), en internet la app se protege
 // con una clave compartida: APP_PASSWORD. Sin esa variable (local) o con login de Google
-// activo (GOOGLE_CLIENT_ID) no pide nada.
+// activo (GOOGLE_CLIENT_ID y GOOGLE_CLIENT_SECRET) no pide nada.
 export function middleware(req: NextRequest) {
   const password = process.env.APP_PASSWORD;
-  if (!password || process.env.GOOGLE_CLIENT_ID) return NextResponse.next();
+  if (!password || (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET)) return NextResponse.next();
   const auth = req.headers.get("authorization");
   if (auth?.startsWith("Basic ")) {
     const [, pass] = atob(auth.slice(6)).split(":");
@@ -15,6 +15,7 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  // El webhook de WhatsApp lo llama Meta y no puede mandar la clave; /api/health es el chequeo de estado.
-  matcher: ["/((?!api/whatsapp|api/health|_next/static|_next/image|icon.svg).*)"],
+  // El webhook de WhatsApp lo llama Meta y no puede mandar la clave; /api/health es el chequeo de estado;
+  // /privacidad es pública porque Google la revisa para el ingreso con Google.
+  matcher: ["/((?!api/whatsapp|api/health|privacidad|_next/static|_next/image|icon.svg).*)"],
 };
