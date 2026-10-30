@@ -14,6 +14,7 @@ const paths: Record<string, React.ReactNode> = {
   arrow: <path d="M5 12h14M13 6l6 6-6 6" />,
   x: <path d="M6 6l12 12M18 6 6 18" />,
   ok: <path d="m5 12.5 4.5 4.5L19 7.5" />,
+  users: <><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20a6.5 6.5 0 0 1 13 0" /><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18.5 14.5A6.5 6.5 0 0 1 21.5 20" /></>,
   flow: <><circle cx="5.5" cy="6" r="2.5" /><circle cx="18.5" cy="12" r="2.5" /><circle cx="5.5" cy="18" r="2.5" /><path d="M8 6h3.5a3 3 0 0 1 3 3v0a3 3 0 0 0 1.5 2.6M8 18h3.5a3 3 0 0 0 3-3v0a3 3 0 0 1 1.5-2.6" /></>,
   up: <path d="m6 15 6-6 6 6" />,
   down: <path d="m6 9 6 6 6-6" />,

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { clearSession, requireUser, setSession } from "@/lib/auth";
+import { clearSession, demoEnabled, requireUser, setSession } from "@/lib/auth";
 import { canApprove, expenseEditMode, missingFields, nextStep, reportTotal, startFlow } from "@/lib/workflow";
 import { kindsOf, stepDefSchema } from "@/lib/flows";
 import { z } from "zod";
@@ -24,7 +24,9 @@ const int = (f: FormData, k: string) => {
 
 // ---------- Sesión ----------
 
+// Selector de demo: solo funciona si el modo demo está activo (sin Google o con DEMO_LOGIN=1)
 export async function login(formData: FormData) {
+  if (!demoEnabled()) throw new Error("El ingreso de demo está desactivado");
   await setSession(String(formData.get("userId")));
   redirect("/");
 }
@@ -279,6 +281,35 @@ async function requireAdmin() {
   const user = await requireUser();
   if (user.role !== "ADMIN") throw new Error("Solo el administrador");
   return user;
+}
+
+// ---------- Usuarios (admin) ----------
+
+const ROLE_KEYS = ["EMPLEADO", "JEFE", "CONTABILIDAD", "CONTROLLER", "TESORERIA", "ADMIN"];
+
+// Crea (id null) o edita un usuario de la empresa. Entra con Google usando ese correo.
+export async function saveUser(id: string | null, formData: FormData) {
+  const admin = await requireAdmin();
+  const name = str(formData, "name");
+  const email = str(formData, "email")?.toLowerCase();
+  const role = str(formData, "role") ?? "EMPLEADO";
+  const managerId = str(formData, "managerId");
+  if (!name) throw new Error("Falta el nombre");
+  if (!email || !z.email().safeParse(email).success) throw new Error("Correo inválido");
+  if (!ROLE_KEYS.includes(role)) throw new Error("Rol inválido");
+  if (managerId && (managerId === id || !(await db.user.count({ where: { id: managerId, companyId: admin.companyId } }))))
+    throw new Error("Jefe directo inválido");
+  const taken = await db.user.findUnique({ where: { email } });
+  if (taken && taken.id !== id) throw new Error(`Ya existe un usuario con ${email}`);
+  if (id === admin.id && role !== "ADMIN") throw new Error("No puedes quitarte el rol de administrador");
+  const data = { name, email, role, managerId };
+  if (id) {
+    const u = await db.user.findFirstOrThrow({ where: { id, companyId: admin.companyId } });
+    await db.user.update({ where: { id: u.id }, data });
+  } else {
+    await db.user.create({ data: { ...data, companyId: admin.companyId } });
+  }
+  revalidatePath("/admin/usuarios");
 }
 
 // Guarda un flujo nuevo (id null) o editado. Los informes ya enviados conservan el flujo con que partieron.

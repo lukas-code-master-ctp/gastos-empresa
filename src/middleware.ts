@@ -1,10 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 // Mientras el login sea de demo (cualquiera elige usuario), en internet la app se protege
-// con una clave compartida: APP_PASSWORD. Sin esa variable (local) no pide nada.
+// con una clave compartida: APP_PASSWORD. Sin esa variable (local) o con login de Google
+// activo (GOOGLE_CLIENT_ID) no pide nada.
 export function middleware(req: NextRequest) {
   const password = process.env.APP_PASSWORD;
-  if (!password) return NextResponse.next();
+  if (!password || process.env.GOOGLE_CLIENT_ID) return NextResponse.next();
   const auth = req.headers.get("authorization");
   if (auth?.startsWith("Basic ")) {
     const [, pass] = atob(auth.slice(6)).split(":");
