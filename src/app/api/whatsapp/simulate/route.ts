@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { currentUser } from "@/lib/auth";
 import { handleIncoming } from "@/lib/whatsapp";
+import { whatsappSimulatorEnabled } from "@/lib/features";
 
 // Simulador del canal WhatsApp para probar sin la API de Meta.
 export async function POST(req: Request) {
+  if (!whatsappSimulatorEnabled()) return NextResponse.json({ error: "Simulador desactivado" }, { status: 404 });
   const user = await currentUser();
   if (!user?.phone) return NextResponse.json({ error: "Tu usuario no tiene teléfono asociado" }, { status: 400 });
   const form = await req.formData();

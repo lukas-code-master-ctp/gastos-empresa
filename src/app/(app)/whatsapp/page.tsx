@@ -1,7 +1,10 @@
+import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
+import { whatsappSimulatorEnabled } from "@/lib/features";
 import Chat from "./Chat";
 
 export default async function WhatsappPage() {
+  if (!whatsappSimulatorEnabled()) notFound();
   const user = await requireUser();
   return (
     <div className="max-w-xl space-y-4">

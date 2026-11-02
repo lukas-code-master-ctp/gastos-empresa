@@ -2,6 +2,7 @@ import { logout } from "@/app/actions";
 import { ROLES } from "@/lib/format";
 import { demoEnabled, requireUser } from "@/lib/auth";
 import { pendingApprovals } from "@/lib/workflow";
+import { whatsappSimulatorEnabled } from "@/lib/features";
 import { Logo } from "./Brand";
 import { Icon } from "./Icons";
 import { NavLinks, type NavItem } from "./NavLinks";
@@ -18,7 +19,7 @@ export default async function Shell({ children }: { children: React.ReactNode })
     { href: "/gastos", label: "Mis gastos", icon: "receipt" },
     { href: "/informes", label: "Mis informes", icon: "folder" },
     { href: "/fondos", label: "Fondos y caja chica", icon: "wallet" },
-    { href: "/whatsapp", label: "WhatsApp (simulador)", icon: "chat" },
+    ...(whatsappSimulatorEnabled() ? [{ href: "/whatsapp", label: "WhatsApp (simulador)", icon: "chat" as const }] : []),
     ...(approver ? [{ href: "/aprobaciones", label: "Aprobaciones", icon: "check" as const, badge: pendingCount }] : []),
     ...(treasury ? [{ href: "/tesoreria", label: "Tesorería", icon: "bank" as const }] : []),
     ...(user.role === "ADMIN"
