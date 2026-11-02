@@ -4,6 +4,7 @@ import { requireUser } from "@/lib/auth";
 import { clp, fecha } from "@/lib/format";
 import { missingFields } from "@/lib/workflow";
 import { StatusBadge } from "@/components/Badge";
+import ReceiptDrop from "@/components/ReceiptDrop";
 
 export default async function GastosPage() {
   const user = await requireUser();
@@ -14,8 +15,12 @@ export default async function GastosPage() {
   });
   return (
     <div className="space-y-6">
+      <ReceiptDrop />
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="h1">Mis gastos</h1>
+        <div>
+          <h1 className="h1">Mis gastos</h1>
+          <p className="mt-1 hidden text-sm text-slate-500 md:block">Arrastra boletas o facturas (PDF o fotos) a esta pantalla para crear un gasto por cada una.</p>
+        </div>
         <Link href="/gastos/nuevo" className="btn">Subir boleta</Link>
       </div>
       <div className="card overflow-x-auto p-0">
@@ -25,7 +30,7 @@ export default async function GastosPage() {
           </thead>
           <tbody>
             {expenses.length === 0 && (
-              <tr><td colSpan={6} className="py-8 text-center text-slate-500">Aún no tienes gastos. Sube tu primera boleta.</td></tr>
+              <tr><td colSpan={6} className="py-8 text-center text-slate-500">Aún no tienes gastos. Sube tu primera boleta o arrástrala aquí.</td></tr>
             )}
             {expenses.map((e) => {
               const missing = missingFields(e);
