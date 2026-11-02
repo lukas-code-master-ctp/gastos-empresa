@@ -5,6 +5,7 @@ import { pendingApprovals, reportTotal } from "@/lib/workflow";
 import { clp, FUND_TYPES } from "@/lib/format";
 import { Icon, type IconName } from "@/components/Icons";
 import { CountUp, Stagger, StaggerItem } from "@/components/motion";
+import ReceiptDrop from "@/components/ReceiptDrop";
 
 type Tile = { label: string; value: number; format?: "int" | "clp"; sub?: string; href: string; icon: IconName; alert?: boolean; hero?: boolean };
 
@@ -36,13 +37,14 @@ export default async function Home() {
 
   return (
     <div className="space-y-10">
+      <ReceiptDrop />
       <header className="flex flex-wrap items-end justify-between gap-6">
         <div>
           <div className="eyebrow">{today}</div>
           <h1 className="mt-2 font-display text-4xl font-extrabold tracking-[-0.04em] md:text-6xl">
             Hola, {user.name.split(" ")[0]}<span className="text-mandarina-500">.</span>
           </h1>
-          <p className="mt-2 max-w-prose text-slate-500">¿Tienes una boleta por rendir? Súbela y la IA captura los datos.</p>
+          <p className="mt-2 max-w-prose text-slate-500">¿Tienes una boleta por rendir? Súbela o arrastra tus PDF y fotos aquí, y la IA captura los datos.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Link href="/gastos/nuevo" className="btn"><Icon name="upload" /> Subir boleta</Link>
