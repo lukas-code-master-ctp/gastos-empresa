@@ -37,7 +37,7 @@ export async function startFlow(companyId: string, kind: string, owner: Owner, a
   const flow = flows.find((f) => f.appliesTo.split(",").includes(kind));
   const defs = flow ? parseSteps(flow.steps) : STANDARD_STEPS;
   const userIds = defs.flatMap((s) => (s.kind === "USER" && s.userId ? [s.userId] : []));
-  const users = userIds.length ? await db.user.findMany({ where: { id: { in: userIds }, companyId } }) : [];
+  const users = userIds.length ? await db.user.findMany({ where: { id: { in: userIds }, companyId, active: true } }) : [];
   let steps = resolveSteps(defs, owner, amount, new Map(users.map((u) => [u.id, u.name])));
   // Si ningún paso aplica, igual lo revisa alguien: el admin
   if (steps.length === 0) steps = [{ id: "ADMIN", kind: "ROLE", role: "ADMIN", label: "Administrador" }];

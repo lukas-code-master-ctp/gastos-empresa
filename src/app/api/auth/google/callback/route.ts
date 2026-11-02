@@ -57,7 +57,7 @@ export async function GET(req: NextRequest) {
       (await db.company.create({ data: { name: "Mi empresa", rut: "" } }));
     user = await db.user.create({ data: { name: claims.name ?? email, email, role: "ADMIN", companyId: company.id } });
   }
-  if (!user) return fail("no-registrado", email);
+  if (!user || !user.active) return fail("no-registrado", email);
 
   await setSession(user.id);
   const res = NextResponse.redirect(new URL("/", req.url));

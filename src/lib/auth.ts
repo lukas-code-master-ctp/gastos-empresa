@@ -35,7 +35,9 @@ export function verify(signed: string | undefined) {
 export async function currentUser() {
   const id = verify((await cookies()).get(COOKIE)?.value);
   if (!id) return null;
-  return db.user.findUnique({ where: { id }, include: { company: true, manager: true } });
+  const user = await db.user.findUnique({ where: { id }, include: { company: true, manager: true } });
+  // Un usuario eliminado (desactivado) pierde la sesión de inmediato
+  return user?.active ? user : null;
 }
 
 export async function requireUser() {

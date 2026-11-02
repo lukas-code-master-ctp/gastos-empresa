@@ -90,7 +90,7 @@ async function applyAnswer(expenseId: string, key: string, text: string) {
 
 export async function handleIncoming(msg: { phone: string; text?: string; media?: { data: Buffer; mime: string } }): Promise<string> {
   const user = await db.user.findUnique({ where: { phone: msg.phone } });
-  if (!user) return "Hola 👋 Este número no está registrado. Pide a tu administrador que lo asocie a tu usuario.";
+  if (!user || !user.active) return "Hola 👋 Este número no está registrado. Pide a tu administrador que lo asocie a tu usuario.";
 
   const session = await db.whatsappSession.upsert({ where: { phone: msg.phone }, create: { phone: msg.phone }, update: {} });
 

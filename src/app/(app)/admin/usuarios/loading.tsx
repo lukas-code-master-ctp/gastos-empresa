@@ -10,7 +10,10 @@ export default function Loading() {
         {Array.from({ length: 5 }, (_, i) => (
           <div key={i} className="card grid items-end gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1.2fr_0.8fr_1fr_auto]" style={{ opacity: 1 - i * 0.15 }}>
             {Array.from({ length: 4 }, (_, j) => <Bone key={j} className="h-10 w-full rounded-xl" />)}
-            <Bone className="h-10 w-24 rounded-xl" />
+            <div className="flex gap-2">
+              <Bone className="h-10 flex-1 rounded-xl lg:w-24" />
+              <Bone className="h-10 w-10 rounded-xl" />
+            </div>
           </div>
         ))}
       </section>
