@@ -5,7 +5,7 @@ import { readReceipt } from "./ocr";
 // Guarda la boleta, la lee con IA y crea el gasto en borrador con lo capturado.
 export async function createExpenseFromReceipt(userId: string, companyId: string, file: Buffer, mime: string, source: "WEB" | "WHATSAPP") {
   const receiptPath = await saveFile(file, mime);
-  const categories = await db.category.findMany({ where: { companyId } });
+  const categories = await db.category.findMany({ where: { companyId, active: true } });
   let ocr = null;
   let ocrError: string | null = null;
   try {

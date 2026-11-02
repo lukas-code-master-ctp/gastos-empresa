@@ -17,8 +17,9 @@ export default async function GastoPage({ params, searchParams }: { params: Prom
   if (!e || (!mine && !reviewer)) notFound();
   const mode = expenseEditMode(user, e);
   const [categories, projects] = await Promise.all([
-    db.category.findMany({ where: { companyId: user.companyId }, orderBy: { name: "asc" } }),
-    db.project.findMany({ where: { companyId: user.companyId }, orderBy: { name: "asc" } }),
+    // Solo las activas, más la que ya tenga el gasto (aunque se haya desactivado después)
+    db.category.findMany({ where: { companyId: user.companyId, OR: [{ active: true }, { id: e.categoryId ?? "" }] }, orderBy: { name: "asc" } }),
+    db.project.findMany({ where: { companyId: user.companyId, OR: [{ active: true }, { id: e.projectId ?? "" }] }, orderBy: { name: "asc" } }),
   ]);
   const doubts: string[] = e.ocrRaw ? JSON.parse(e.ocrRaw).doubts ?? [] : [];
   const editable = mode !== null;

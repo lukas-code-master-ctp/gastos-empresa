@@ -14,7 +14,7 @@ export default async function GastosPage() {
       include: { category: true, report: true },
       orderBy: { createdAt: "desc" },
     }),
-    db.project.count({ where: { companyId: user.companyId } }),
+    db.project.count({ where: { companyId: user.companyId, active: true } }),
   ]);
   return (
     <div className="space-y-6">

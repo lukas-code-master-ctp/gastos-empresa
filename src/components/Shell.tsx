@@ -24,7 +24,15 @@ export default async function Shell({ children }: { children: React.ReactNode })
     ...(user.role === "ADMIN"
       ? [
           { href: "/admin/usuarios", label: "Usuarios", icon: "users" as const },
-          { href: "/admin/flujos", label: "Flujos de aprobación", icon: "flow" as const },
+          {
+            href: "/admin/flujos",
+            label: "Configuraciones",
+            icon: "settings" as const,
+            children: [
+              { href: "/admin/flujos", label: "Flujos de aprobación", icon: "flow" as const },
+              { href: "/admin/categorias", label: "Categorías y proyectos", icon: "tag" as const },
+            ],
+          },
         ]
       : []),
   ];

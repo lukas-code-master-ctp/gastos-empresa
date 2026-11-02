@@ -1,4 +1,5 @@
 import { PrismaClient } from "@prisma/client";
+import { DEFAULT_CATEGORIES, DEFAULT_PROJECTS } from "../src/lib/catalog";
 
 const db = new PrismaClient();
 
@@ -20,23 +21,8 @@ async function main() {
   const company = await db.company.create({ data: { name: "Empresa Demo SpA", rut: "76.123.456-7" } });
   const c = company.id;
 
-  for (const [name, erpAccount] of [
-    ["Alimentación", "5101"],
-    ["Transporte", "5102"],
-    ["Combustible", "5103"],
-    ["Alojamiento", "5104"],
-    ["Materiales y suministros", "5105"],
-    ["Estacionamiento y peajes", "5106"],
-    ["Otros", "5199"],
-  ])
-    await db.category.create({ data: { name, erpAccount, companyId: c } });
-
-  for (const [name, code] of [
-    ["Administración", "ADM"],
-    ["Proyecto Norte", "PN-01"],
-    ["Proyecto Sur", "PS-02"],
-  ])
-    await db.project.create({ data: { name, code, companyId: c } });
+  for (const [name, erpAccount] of DEFAULT_CATEGORIES) await db.category.create({ data: { name, erpAccount, companyId: c } });
+  for (const [name, code] of DEFAULT_PROJECTS) await db.project.create({ data: { name, code, companyId: c } });
 
   const mk = (name: string, email: string, role: string, managerId?: string, phone?: string) =>
     db.user.create({ data: { name, email, role, managerId, phone, companyId: c } });
