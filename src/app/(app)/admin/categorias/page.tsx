@@ -4,6 +4,7 @@ import { requireUser } from "@/lib/auth";
 import { deleteCatalogItem, loadDefaultCatalog, saveCatalogItem, toggleCatalogItem } from "@/app/actions";
 import { ConfirmSubmit } from "@/components/ConfirmSubmit";
 import { Icon } from "@/components/Icons";
+import { ConfigHeader } from "@/components/ConfigTabs";
 
 type Kind = "category" | "project";
 type Item = { id: string; name: string; code: string | null; active: boolean; used: number };
@@ -111,15 +112,10 @@ export default async function CategoriasPage() {
 
   return (
     <div className="space-y-10">
-      <header>
-        <div className="eyebrow">Configuraciones · {user.company.name}</div>
-        <h1 className="mt-2 font-display text-4xl font-extrabold tracking-[-0.04em] md:text-5xl">
-          Categorías y proyectos<span className="text-mandarina-500">.</span>
-        </h1>
-        <p className="mt-2 max-w-prose text-slate-500">
-          Son las opciones que ve tu equipo al registrar un gasto, en la web y por WhatsApp. Desactivar algo lo saca de la lista para gastos nuevos sin tocar los gastos que ya lo usan.
-        </p>
-      </header>
+      <ConfigHeader company={user.company.name} current="categorias" />
+      <p className="max-w-prose text-slate-500">
+        Son las opciones que ve tu equipo al registrar un gasto, en la web y por WhatsApp. Desactivar algo lo saca de la lista para gastos nuevos sin tocar los gastos que ya lo usan.
+      </p>
       <Section kind="category" items={categories.map((c) => ({ id: c.id, name: c.name, code: c.erpAccount, active: c.active, used: c._count.expenses }))} />
       <Section kind="project" items={projects.map((p) => ({ id: p.id, name: p.name, code: p.code, active: p.active, used: p._count.expenses }))} />
     </div>

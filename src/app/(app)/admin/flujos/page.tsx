@@ -8,6 +8,7 @@ import { fecha } from "@/lib/format";
 import { ConfirmSubmit } from "@/components/ConfirmSubmit";
 import { FlowChain } from "@/components/FlowChain";
 import { Icon } from "@/components/Icons";
+import { ConfigHeader } from "@/components/ConfigTabs";
 import { Stagger, StaggerItem } from "@/components/motion";
 
 export default async function FlujosPage() {
@@ -24,18 +25,13 @@ export default async function FlujosPage() {
 
   return (
     <div className="space-y-10">
-      <header className="flex flex-wrap items-end justify-between gap-6">
-        <div>
-          <div className="eyebrow">Configuraciones · {user.company.name}</div>
-          <h1 className="mt-2 font-display text-4xl font-extrabold tracking-[-0.04em] md:text-5xl">
-            Flujos de aprobación<span className="text-mandarina-500">.</span>
-          </h1>
-          <p className="mt-2 max-w-prose text-slate-500">
-            Define quién aprueba cada tipo de rendición y en qué orden. Los cambios aplican a lo que se envíe desde ahora; lo que ya está en aprobación sigue con su flujo.
-          </p>
-        </div>
+      <ConfigHeader company={user.company.name} current="flujos" />
+      <div className="flex flex-wrap items-end justify-between gap-6">
+        <p className="max-w-prose text-slate-500">
+          Define quién aprueba cada tipo de rendición y en qué orden. Los cambios aplican a lo que se envíe desde ahora; lo que ya está en aprobación sigue con su flujo.
+        </p>
         <Link href="/admin/flujos/nuevo" className="btn"><Icon name="plus" /> Nuevo flujo</Link>
-      </header>
+      </div>
 
       <section>
         <h2 className="eyebrow">Qué flujo usa cada tipo</h2>
