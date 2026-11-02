@@ -2,17 +2,20 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { clp, fecha } from "@/lib/format";
-import { missingFields } from "@/lib/workflow";
+import { missingFields, pendingFields } from "@/lib/workflow";
 import { StatusBadge } from "@/components/Badge";
 import ReceiptDrop from "@/components/ReceiptDrop";
 
 export default async function GastosPage() {
   const user = await requireUser();
-  const expenses = await db.expense.findMany({
-    where: { userId: user.id },
-    include: { category: true, report: true },
-    orderBy: { createdAt: "desc" },
-  });
+  const [expenses, projectCount] = await Promise.all([
+    db.expense.findMany({
+      where: { userId: user.id },
+      include: { category: true, report: true },
+      orderBy: { createdAt: "desc" },
+    }),
+    db.project.count({ where: { companyId: user.companyId } }),
+  ]);
   return (
     <div className="space-y-6">
       <ReceiptDrop />
@@ -34,12 +37,17 @@ export default async function GastosPage() {
             )}
             {expenses.map((e) => {
               const missing = missingFields(e);
+              // Solo se avisa de lo opcional mientras el gasto se puede editar (sin informe o en borrador)
+              const open = !e.report || e.report.status === "BORRADOR";
+              const pending = open ? pendingFields(e, projectCount > 0) : { optional: [], doubts: [] };
               return (
                 <tr key={e.id} className="hover:bg-slate-50">
                   <td>{fecha(e.date)}</td>
                   <td>
                     <Link href={`/gastos/${e.id}`} className="font-medium text-emerald-700 hover:underline">{e.merchant ?? "Sin comercio"}</Link>
-                    {missing.length > 0 && <div className="text-xs text-amber-700">Falta: {missing.join(", ")}</div>}
+                    {missing.length > 0 && <div className="text-xs font-medium text-red-700">Falta: {missing.join(", ")}</div>}
+                    {pending.optional.length > 0 && <div className="text-xs text-mandarina-700">Por completar: {pending.optional.join(", ")}</div>}
+                    {pending.doubts.length > 0 && <div className="text-xs text-amber-700">Revisar: {pending.doubts.join(", ")}</div>}
                     {e.rejectedAt && <div className="text-xs font-medium text-red-700">✕ Rechazado: {e.rejectedReason}</div>}
                   </td>
                   <td>{e.category?.name ?? "—"}</td>

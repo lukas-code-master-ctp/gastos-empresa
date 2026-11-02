@@ -107,6 +107,28 @@ export function missingFields(e: {
   return m;
 }
 
+// Para mostrar en listas lo mismo que marca el formulario del gasto: datos opcionales vacíos
+// («Por completar», no bloquean el envío) y los que la IA dejó dudosos («Revisar»).
+const FIELD_LABELS: Record<string, string> = {
+  merchant: "comercio", rutProvider: "RUT", date: "fecha", docType: "tipo de documento", docNumber: "N° documento",
+  amount: "monto", iva: "IVA", categoryId: "categoría", projectId: "proyecto",
+};
+export function pendingFields(
+  e: { rutProvider: string | null; docNumber: string | null; iva: number | null; projectId: string | null; ocrRaw: string | null },
+  hasProjects: boolean,
+) {
+  const optional: string[] = [];
+  if (!e.rutProvider) optional.push("RUT");
+  if (!e.docNumber) optional.push("N° documento");
+  if (e.iva == null) optional.push("IVA");
+  if (hasProjects && !e.projectId) optional.push("proyecto");
+  let doubts: string[] = [];
+  try {
+    doubts = e.ocrRaw ? (JSON.parse(e.ocrRaw).doubts ?? []).map((d: string) => FIELD_LABELS[d] ?? d) : [];
+  } catch {}
+  return { optional, doubts: doubts.filter((d) => !optional.includes(d)) };
+}
+
 // Lo que el usuario tiene pendiente de aprobar, según el paso en que va cada informe o fondo.
 export async function pendingApprovals(user: Approver & { companyId: string }) {
   const base = { status: "EN_APROBACION", user: { companyId: user.companyId }, NOT: { userId: user.id } };
