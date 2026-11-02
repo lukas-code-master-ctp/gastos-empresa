@@ -10,6 +10,7 @@ import { z } from "zod";
 import { clp, fecha } from "@/lib/format";
 import { registerInErp } from "@/lib/erp";
 import { saveFile } from "@/lib/storage";
+import { DEFAULT_CATEGORIES, DEFAULT_PROJECTS } from "@/lib/catalog";
 
 const str = (f: FormData, k: string) => {
   const v = f.get(k);
@@ -351,6 +352,70 @@ export async function deleteFlow(id: string) {
   await db.approvalFlow.deleteMany({ where: { id, companyId: user.companyId } });
   revalidatePath("/admin/flujos");
   redirect("/admin/flujos");
+}
+
+// ---------- Categorías y proyectos (admin) ----------
+
+type CatalogKind = "category" | "project";
+const catalogPath = "/admin/categorias";
+
+// Crea (id null) o edita una categoría o un proyecto de la empresa
+export async function saveCatalogItem(kind: CatalogKind, id: string | null, formData: FormData) {
+  const admin = await requireAdmin();
+  const name = str(formData, "name");
+  const code = str(formData, "code");
+  if (!name) throw new Error("Falta el nombre");
+  if (kind === "project" && !code) throw new Error("Falta el código del proyecto");
+  const companyId = admin.companyId;
+  const where = { companyId, name, ...(id ? { NOT: { id } } : {}) };
+  if (kind === "category") {
+    if (await db.category.count({ where })) throw new Error(`Ya existe la categoría ${name}`);
+    const data = { name, erpAccount: code };
+    if (id) await db.category.update({ where: { id: (await db.category.findFirstOrThrow({ where: { id, companyId } })).id }, data });
+    else await db.category.create({ data: { ...data, companyId } });
+  } else {
+    if (await db.project.count({ where })) throw new Error(`Ya existe el proyecto ${name}`);
+    const data = { name, code: code! };
+    if (id) await db.project.update({ where: { id: (await db.project.findFirstOrThrow({ where: { id, companyId } })).id }, data });
+    else await db.project.create({ data: { ...data, companyId } });
+  }
+  revalidatePath(catalogPath);
+}
+
+// Activa o desactiva: desactivado deja de aparecer al registrar gastos, pero los gastos que ya lo usan lo conservan
+export async function toggleCatalogItem(kind: CatalogKind, id: string) {
+  const { companyId } = await requireAdmin();
+  if (kind === "category") {
+    const c = await db.category.findFirstOrThrow({ where: { id, companyId } });
+    await db.category.update({ where: { id }, data: { active: !c.active } });
+  } else {
+    const p = await db.project.findFirstOrThrow({ where: { id, companyId } });
+    await db.project.update({ where: { id }, data: { active: !p.active } });
+  }
+  revalidatePath(catalogPath);
+}
+
+// Borrar solo se puede si ningún gasto lo usa; si no, se desactiva
+export async function deleteCatalogItem(kind: CatalogKind, id: string) {
+  const { companyId } = await requireAdmin();
+  const used = await db.expense.count({ where: kind === "category" ? { categoryId: id } : { projectId: id } });
+  if (used) throw new Error("Hay gastos que lo usan: desactívalo en vez de borrarlo");
+  if (kind === "category") await db.category.deleteMany({ where: { id, companyId } });
+  else await db.project.deleteMany({ where: { id, companyId } });
+  revalidatePath(catalogPath);
+}
+
+// Carga los valores iniciales (los de la demo) en una empresa que todavía no tiene categorías o proyectos
+export async function loadDefaultCatalog(kind: CatalogKind) {
+  const { companyId } = await requireAdmin();
+  if (kind === "category") {
+    if (await db.category.count({ where: { companyId } })) return;
+    await db.category.createMany({ data: DEFAULT_CATEGORIES.map(([name, erpAccount]) => ({ name, erpAccount, companyId })) });
+  } else {
+    if (await db.project.count({ where: { companyId } })) return;
+    await db.project.createMany({ data: DEFAULT_PROJECTS.map(([name, code]) => ({ name, code, companyId })) });
+  }
+  revalidatePath(catalogPath);
 }
 
 // ---------- Tesorería ----------

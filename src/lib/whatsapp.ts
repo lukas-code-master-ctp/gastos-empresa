@@ -53,8 +53,8 @@ async function askFor(phone: string, expenseId: string): Promise<string> {
   if (field.key === "categoryId" || field.key === "projectId") {
     const list =
       field.key === "categoryId"
-        ? await db.category.findMany({ where: { companyId: e.user.companyId }, orderBy: { name: "asc" } })
-        : await db.project.findMany({ where: { companyId: e.user.companyId }, orderBy: { name: "asc" } });
+        ? await db.category.findMany({ where: { companyId: e.user.companyId, active: true }, orderBy: { name: "asc" } })
+        : await db.project.findMany({ where: { companyId: e.user.companyId, active: true }, orderBy: { name: "asc" } });
     const label = field.key === "categoryId" ? "la categoría" : "el proyecto (o 0 si no aplica)";
     return `Indica ${label} con su número:\n` + list.map((c, i) => `${i + 1}. ${c.name}`).join("\n");
   }
@@ -67,8 +67,8 @@ async function applyAnswer(expenseId: string, key: string, text: string) {
   if (key === "categoryId" || key === "projectId") {
     const list =
       key === "categoryId"
-        ? await db.category.findMany({ where: { companyId: e.user.companyId }, orderBy: { name: "asc" } })
-        : await db.project.findMany({ where: { companyId: e.user.companyId }, orderBy: { name: "asc" } });
+        ? await db.category.findMany({ where: { companyId: e.user.companyId, active: true }, orderBy: { name: "asc" } })
+        : await db.project.findMany({ where: { companyId: e.user.companyId, active: true }, orderBy: { name: "asc" } });
     const n = parseInt(text, 10);
     if (key === "projectId" && n === 0) value = "";
     else value = list[n - 1]?.id;

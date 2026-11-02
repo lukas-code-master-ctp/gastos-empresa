@@ -26,7 +26,7 @@ export default async function FlujosPage() {
     <div className="space-y-10">
       <header className="flex flex-wrap items-end justify-between gap-6">
         <div>
-          <div className="eyebrow">Administración · {user.company.name}</div>
+          <div className="eyebrow">Configuraciones · {user.company.name}</div>
           <h1 className="mt-2 font-display text-4xl font-extrabold tracking-[-0.04em] md:text-5xl">
             Flujos de aprobación<span className="text-mandarina-500">.</span>
           </h1>
