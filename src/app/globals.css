@@ -145,6 +145,30 @@ body {
   100% { box-shadow: 0 0 0 0 rgb(255 90 31 / 0); }
 }
 @keyframes grow { from { transform: scaleX(0); } }
+/* Skeleton de carga: hueso cálido con un brillo que lo recorre (se apaga con reduced motion) */
+@keyframes shimmer { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+@layer components {
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  border-radius: 0.5rem;
+  background: var(--color-slate-100);
+}
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.75), transparent);
+  animation: shimmer 1.6s var(--ease-out-expo) infinite;
+}
+.skeleton-dark { background: rgb(255 255 255 / 0.15); }
+.skeleton-dark::after { background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.18), transparent); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton::after { animation: none; display: none; }
+}
+
 
 .pulse-ring { animation: pulse-ring 2s var(--ease-out-expo) infinite; }
 
