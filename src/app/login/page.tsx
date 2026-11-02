@@ -19,7 +19,7 @@ const ERRORS: Record<string, string> = {
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string; email?: string }> }) {
   const { error, email } = await searchParams;
   const demo = demoEnabled();
-  const users = demo ? await db.user.findMany({ orderBy: { name: "asc" } }) : [];
+  const users = demo ? await db.user.findMany({ where: { active: true }, orderBy: { name: "asc" } }) : [];
   const message = error && ERRORS[error] ? (error === "no-registrado" ? `${email ?? "Tu correo"} ${ERRORS[error]}` : ERRORS[error]) : null;
   return (
     <div className="grid min-h-dvh lg:grid-cols-[1.1fr_1fr]">

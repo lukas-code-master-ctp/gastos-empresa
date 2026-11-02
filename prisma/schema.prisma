@@ -42,6 +42,8 @@ model User {
   // EMPLEADO | JEFE | CONTABILIDAD | CONTROLLER | TESORERIA | ADMIN
   role      String    @default("EMPLEADO")
   bankInfo  String?
+  // Desactivado = "eliminado" con historial: no entra ni aparece en listas, pero sus gastos e informes se conservan
+  active    Boolean   @default(true)
   companyId String
   company   Company   @relation(fields: [companyId], references: [id])
   managerId String?

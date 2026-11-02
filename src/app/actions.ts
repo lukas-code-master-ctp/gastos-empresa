@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { clearSession, demoEnabled, requireUser, setSession } from "@/lib/auth";
 import { canApprove, expenseEditMode, missingFields, nextStep, reportTotal, startFlow } from "@/lib/workflow";
-import { kindsOf, stepDefSchema } from "@/lib/flows";
+import { kindsOf, parseSteps, stepDefSchema } from "@/lib/flows";
 import { z } from "zod";
 import { clp, fecha } from "@/lib/format";
 import { registerInErp } from "@/lib/erp";
@@ -298,10 +298,11 @@ export async function saveUser(id: string | null, formData: FormData) {
   if (!name) throw new Error("Falta el nombre");
   if (!email || !z.email().safeParse(email).success) throw new Error("Correo inválido");
   if (!ROLE_KEYS.includes(role)) throw new Error("Rol inválido");
-  if (managerId && (managerId === id || !(await db.user.count({ where: { id: managerId, companyId: admin.companyId } }))))
+  if (managerId && (managerId === id || !(await db.user.count({ where: { id: managerId, companyId: admin.companyId, active: true } }))))
     throw new Error("Jefe directo inválido");
   const taken = await db.user.findUnique({ where: { email } });
-  if (taken && taken.id !== id) throw new Error(`Ya existe un usuario con ${email}`);
+  if (taken && taken.id !== id)
+    throw new Error(taken.active ? `Ya existe un usuario con ${email}` : `${email} es de un usuario eliminado: reactívalo en la lista de abajo`);
   if (id === admin.id && role !== "ADMIN") throw new Error("No puedes quitarte el rol de administrador");
   const data = { name, email, role, managerId };
   if (id) {
@@ -310,6 +311,43 @@ export async function saveUser(id: string | null, formData: FormData) {
   } else {
     await db.user.create({ data: { ...data, companyId: admin.companyId } });
   }
+  revalidatePath("/admin/usuarios");
+}
+
+// Elimina un usuario. Si no tiene historial se borra; si tiene gastos, informes, fondos o
+// aprobaciones se desactiva (no entra ni aparece en listas) para no perder ese historial.
+// Quienes lo tenían de jefe directo pasan a su jefe, y sale de los pasos "persona" de los flujos.
+export async function deleteUser(id: string) {
+  const admin = await requireAdmin();
+  if (id === admin.id) throw new Error("No puedes eliminarte a ti mismo");
+  const u = await db.user.findFirstOrThrow({
+    where: { id, companyId: admin.companyId },
+    include: { _count: { select: { expenses: true, informes: true, funds: true, approvals: true } } },
+  });
+  const hasHistory = Object.values(u._count).some((n) => n > 0);
+
+  const flows = await db.approvalFlow.findMany({ where: { companyId: admin.companyId } });
+  await db.$transaction(async (tx) => {
+    await tx.user.updateMany({ where: { managerId: u.id }, data: { managerId: u.managerId === u.id ? null : u.managerId } });
+    for (const f of flows) {
+      const steps = parseSteps(f.steps);
+      const rest = steps.filter((s) => !(s.kind === "USER" && s.userId === u.id));
+      if (rest.length === steps.length) continue;
+      // Un flujo que queda sin pasos se borra: ese tipo vuelve al flujo estándar
+      if (rest.length) await tx.approvalFlow.update({ where: { id: f.id }, data: { steps: JSON.stringify(rest) } });
+      else await tx.approvalFlow.delete({ where: { id: f.id } });
+    }
+    if (hasHistory) await tx.user.update({ where: { id: u.id }, data: { active: false, managerId: null } });
+    else await tx.user.delete({ where: { id: u.id } });
+  });
+  revalidatePath("/admin/usuarios");
+  revalidatePath("/admin/flujos");
+}
+
+export async function reactivateUser(id: string) {
+  const admin = await requireAdmin();
+  const u = await db.user.findFirstOrThrow({ where: { id, companyId: admin.companyId } });
+  await db.user.update({ where: { id: u.id }, data: { active: true } });
   revalidatePath("/admin/usuarios");
 }
 
