@@ -14,6 +14,7 @@ Rindefi es la web app para que las empresas rindan gastos de **reembolsos**, **f
 | Flujo de aprobación configurable por empresa (el admin lo arma en `/admin/flujos`: pasos por jefe directo, rol o persona, con monto mínimo opcional y un flujo por tipo). Sin flujo propio se usa el estándar: jefe directo → contabilidad → controller. Cada aprobador aprueba o rechaza (con motivo) el informe completo o gastos puntuales; los gastos rechazados quedan bloqueados y no se contabilizan | `/aprobaciones`, `/admin/flujos`, `src/lib/workflow.ts`, `src/lib/flows.ts`, acción `decide` |
 | Contabilidad, controller y tesorería pueden editar gastos de informes en curso; cada cambio queda en el historial | acción `updateExpense` |
 | Gasto aprobado → integración ERP | `src/lib/erp.ts` (POST a `ERP_WEBHOOK_URL`, o simulado) |
+| Avisos: cada cambio de estado (enviado, aprobado, rechazado, pagado, devolución) avisa a quien rinde y al siguiente aprobador o a tesorería, en la campanita y por correo (Resend) | `/avisos`, `src/lib/notify.ts` |
 | Tesorería: reembolso → depósito · caja chica → se descuenta del monto de caja · fondo fijo → ¿calzó? cierra / ¿sobró? pide devolución / faltó → deposita diferencia → cierra | `/tesoreria`, acciones `settleReport`, `confirmReturn`, `deliverFund` |
 
 Roles: Empleado, Jefe directo, Contabilidad, Controller, Tesorería, Admin.
@@ -45,6 +46,9 @@ Variables en Vercel (Settings → Environment Variables):
 | `DEMO_LOGIN` | `1` para mostrar también el selector de demo con Google activo (opcional) |
 | `APP_PASSWORD` | Clave que pide el navegador antes de entrar, solo mientras el login sea de demo |
 | `OPENROUTER_API_KEY` | Lectura de boletas con IA vía OpenRouter (opcional) |
+| `RESEND_API_KEY` | Correos de avisos vía Resend (opcional: sin ella los avisos quedan solo en la campanita) |
+| `NOTIFY_FROM` | Remitente de los correos, p. ej. `Rindefi <avisos@rindefi.cl>` (el dominio debe estar verificado en Resend) |
+| `APP_URL` | URL pública para los links de los correos (por defecto `https://app.rindefi.cl`) |
 | `OPENROUTER_MODEL` | Modelo de visión a usar (opcional, por defecto `google/gemini-3.1-flash-lite`; varios separados por coma hacen de respaldo) |
 
 ## Ingreso con Google
@@ -66,5 +70,5 @@ Next.js 15 (App Router, server actions) · TypeScript · Tailwind · Prisma (SQL
 - Conector real del ERP que usen (hoy webhook genérico con el asiento por línea: cuenta contable por categoría y centro de costo por proyecto).
 - Número de WhatsApp Business y credenciales de Meta (`WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_VERIFY_TOKEN`).
 - Mantenedores de empresas, categorías y proyectos (hoy vienen del seed; usuarios ya se administran en `/admin/usuarios`).
-- Notificaciones por correo/WhatsApp al aprobador de turno.
+- Avisos por WhatsApp (los correos y la campanita ya están).
 - Validación de RUT y detección de boletas duplicadas.

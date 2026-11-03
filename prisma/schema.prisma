@@ -53,6 +53,7 @@ model User {
   informes  Report[]
   funds     Fund[]
   approvals Approval[]
+  notifications Notification[]
   createdAt DateTime  @default(now())
 }
 
@@ -181,4 +182,18 @@ model WhatsappSession {
   expenseId    String?
   pendingField String?
   updatedAt    DateTime @updatedAt
+}
+
+// Aviso a una persona cuando un informe o fondo avanza (campanita + correo vía Resend)
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
+  title     String
+  body      String?
+  href      String // pantalla a la que lleva el aviso
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, readAt])
 }
