@@ -47,7 +47,7 @@ Variables en Vercel (Settings → Environment Variables):
 | `APP_PASSWORD` | Clave que pide el navegador antes de entrar, solo mientras el login sea de demo |
 | `OPENROUTER_API_KEY` | Lectura de boletas con IA vía OpenRouter (opcional) |
 | `RESEND_API_KEY` | Correos de avisos vía Resend (opcional: sin ella los avisos quedan solo en la campanita) |
-| `NOTIFY_FROM` | Remitente de los correos, p. ej. `Rindefi <avisos@rindefi.cl>` (el dominio debe estar verificado en Resend) |
+| `NOTIFY_FROM` | Remitente de los correos, p. ej. `Rindefi <no-reply@avisos.rindefi.cl>` (el dominio debe estar verificado en Resend) |
 | `APP_URL` | URL pública para los links de los correos (por defecto `https://app.rindefi.cl`) |
 | `OPENROUTER_MODEL` | Modelo de visión a usar (opcional, por defecto `google/gemini-3.1-flash-lite`; varios separados por coma hacen de respaldo) |
 
