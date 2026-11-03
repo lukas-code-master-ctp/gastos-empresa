@@ -6,7 +6,7 @@ import { flowOf } from "./workflow";
 // Un error al avisar nunca debe frenar la aprobación, así que todo va en try/catch.
 
 const APP_URL = () => (process.env.APP_URL ?? "https://app.rindefi.cl").replace(/\/$/, "");
-const FROM = () => process.env.NOTIFY_FROM ?? "Rindefi <avisos@rindefi.cl>";
+const FROM = () => process.env.NOTIFY_FROM ?? "Rindefi <no-reply@avisos.rindefi.cl>";
 
 export type Aviso = { title: string; body?: string | null; href: string };
 
