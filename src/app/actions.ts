@@ -4,13 +4,14 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { clearSession, demoEnabled, requireUser, setSession } from "@/lib/auth";
-import { canApprove, expenseEditMode, missingFields, nextStep, reportTotal, startFlow } from "@/lib/workflow";
+import { canApprove, expenseEditMode, missingFields, nextStep, reportTotal, startFlow, stepLabel } from "@/lib/workflow";
 import { kindsOf, parseSteps, stepDefSchema } from "@/lib/flows";
 import { z } from "zod";
-import { clp, fecha } from "@/lib/format";
+import { clp, fecha, TREASURY } from "@/lib/format";
 import { registerInErp } from "@/lib/erp";
 import { saveFile } from "@/lib/storage";
 import { DEFAULT_CATEGORIES, DEFAULT_PROJECTS } from "@/lib/catalog";
+import { notify, notifyApprovers, notifyRole } from "@/lib/notify";
 
 const str = (f: FormData, k: string) => {
   const v = f.get(k);
@@ -152,11 +153,16 @@ export async function submitReport(id: string) {
   if (incompletos.length) throw new Error("Hay gastos con datos faltantes");
   if (r.type === "CAJA_CHICA" && r.fund && reportTotal(r.expenses) > r.fund.balance)
     throw new Error("El total supera el saldo de la caja chica");
+  const flow = await startFlow(user.companyId, r.type, user, reportTotal(r.expenses));
   await db.report.update({
     where: { id },
-    data: { status: "EN_APROBACION", ...(await startFlow(user.companyId, r.type, user, reportTotal(r.expenses))), rejectReason: null, submittedAt: new Date() },
+    data: { status: "EN_APROBACION", ...flow, rejectReason: null, submittedAt: new Date() },
   });
   await db.approval.create({ data: { reportId: id, step: "ENVIO", decision: "ENVIADO", userId: user.id } });
+  await notifyApprovers(
+    { ...flow, user },
+    { title: `Tienes un informe por aprobar: ${r.title}`, body: `${user.name} envió un informe por ${clp(reportTotal(r.expenses))}.`, href: `/informes/${id}` },
+  );
   revalidatePath(`/informes/${id}`);
 }
 
@@ -204,6 +210,32 @@ export async function decide(kind: "report" | "fund", id: string, formData: Form
     : { currentStep: null, status: "RECHAZADO", rejectReason: comment };
   if (kind === "report") await db.report.update({ where: { id }, data });
   else await db.fund.update({ where: { id }, data });
+
+  // Avisos: a quien rinde siempre; al siguiente aprobador o a tesorería según corresponda
+  const what = kind === "report" ? `Tu informe «${(item as { title: string }).title}»` : `Tu solicitud de fondo «${(item as { reason: string }).reason}»`;
+  const href = kind === "report" ? `/informes/${id}` : `/fondos/${id}`;
+  const nextLabel = next ? stepLabel(item, next) : "";
+  if (!approve) {
+    await notify([item.userId], { title: `${what} fue rechazado`, body: `${user.name} lo rechazó: ${comment}`, href });
+  } else if (next) {
+    await notify([item.userId], { title: `${what} avanzó`, body: `${user.name} lo aprobó. Ahora lo revisa: ${nextLabel}.`, href });
+    await notifyApprovers(
+      { currentStep: next, flowSteps: item.flowSteps, user: item.user },
+      {
+        title: kind === "report" ? `Tienes un informe por aprobar: ${(item as { title: string }).title}` : `Tienes una solicitud de fondo por aprobar`,
+        body: `De ${item.user.name}. Ya lo aprobó ${user.name}.`,
+        href,
+      },
+    );
+  } else {
+    await notify([item.userId], { title: `${what} fue aprobado`, body: "Pasó a tesorería para el pago o la entrega.", href });
+    await notifyRole(
+      item.user.companyId,
+      ["TESORERIA"],
+      { title: kind === "report" ? `Informe aprobado para pagar: ${(item as { title: string }).title}` : "Fondo aprobado para entregar", body: `De ${item.user.name}.`, href: "/tesoreria" },
+      item.userId,
+    );
+  }
   await db.approval.create({
     data: {
       [kind === "report" ? "reportId" : "fundId"]: id,
@@ -246,6 +278,7 @@ export async function rejectExpense(reportId: string, expenseId: string, formDat
   if (pending === 0) {
     await db.report.update({ where: { id: reportId }, data: { currentStep: null, status: "RECHAZADO", rejectReason: "Todos los gastos fueron rechazados" } });
     await db.approval.create({ data: { reportId, step, decision: "RECHAZADO", comment: "Todos los gastos fueron rechazados", userId: user.id } });
+    await notify([r.userId], { title: `Tu informe «${r.title}» fue rechazado`, body: `${user.name} rechazó todos sus gastos. Último motivo: ${comment}`, href: `/informes/${reportId}` });
     redirect("/aprobaciones");
   }
   revalidatePath(`/informes/${reportId}`);
@@ -273,6 +306,10 @@ export async function createFund(formData: FormData) {
     data: { type: String(formData.get("type")), userId: user.id, amount, reason, ...(await startFlow(user.companyId, "SOLICITUD_FONDO", user, amount)) },
   });
   await db.approval.create({ data: { fundId: fund.id, step: "ENVIO", decision: "ENVIADO", userId: user.id } });
+  await notifyApprovers(
+    { ...fund, user },
+    { title: "Tienes una solicitud de fondo por aprobar", body: `${user.name} pidió ${clp(amount)}: ${reason}`, href: `/fondos/${fund.id}` },
+  );
   redirect(`/fondos/${fund.id}`);
 }
 
@@ -481,6 +518,7 @@ export async function deliverFund(id: string, formData?: FormData) {
   const att = await treasuryAttachment(formData);
   await db.fund.update({ where: { id }, data: { status: "ACTIVO", balance: f.amount } });
   await db.approval.create({ data: { fundId: id, step: "TESORERIA", decision: "TESORERIA", comment: "ENTREGA_FONDO", userId: user.id, ...att } });
+  await notify([f.userId], { title: "Tesorería entregó tu fondo", body: `Ya tienes disponible ${clp(f.amount)}: ${f.reason}`, href: `/fondos/${id}` });
   revalidatePath("/tesoreria");
 }
 
@@ -527,6 +565,11 @@ export async function settleReport(id: string, formData: FormData) {
     },
   });
   await db.approval.create({ data: { reportId: id, step: "TESORERIA", decision: "TESORERIA", comment: action, userId: user.id, ...att } });
+  await notify([r.userId], {
+    title: action === "DEVOLUCION_SOLICITADA" ? `Debes devolver ${clp(amount)} del informe «${r.title}»` : `Tesorería cerró tu informe «${r.title}»`,
+    body: `${TREASURY[action]}${amount ? ` (${clp(amount)})` : ""}.${note ? ` Nota: ${note}` : ""}`,
+    href: `/informes/${id}`,
+  });
   revalidatePath("/tesoreria");
 }
 
@@ -538,6 +581,7 @@ export async function confirmReturn(id: string, formData?: FormData) {
   await db.report.update({ where: { id }, data: { status: "CERRADO", closedAt: new Date() } });
   if (r.fundId) await db.fund.update({ where: { id: r.fundId }, data: { status: "CERRADO", balance: 0, closedAt: new Date() } });
   await db.approval.create({ data: { reportId: id, step: "TESORERIA", decision: "TESORERIA", comment: "DEVOLUCION_RECIBIDA", userId: user.id, ...att } });
+  await notify([r.userId], { title: `Tesorería recibió tu devolución del informe «${r.title}»`, body: "El informe quedó cerrado.", href: `/informes/${id}` });
   revalidatePath("/tesoreria");
 }
 
@@ -551,9 +595,11 @@ export async function closeCajaChica(id: string) {
   if (f.balance > 0) {
     await db.fund.update({ where: { id }, data: { status: "DEVOLUCION_PENDIENTE" } });
     await db.approval.create({ data: { fundId: id, step: "TESORERIA", decision: "TESORERIA", comment: `DEVOLUCION_CAJA_SOLICITADA:${f.balance}`, userId: user.id } });
+    await notify([f.userId], { title: `Tesorería cerró tu caja chica: devuelve ${clp(f.balance)}`, body: "La caja se cierra cuando tesorería confirme la devolución del saldo.", href: `/fondos/${id}` });
   } else {
     await db.fund.update({ where: { id }, data: { status: "CERRADO", closedAt: new Date() } });
     await db.approval.create({ data: { fundId: id, step: "TESORERIA", decision: "TESORERIA", comment: "CIERRE_CAJA", userId: user.id } });
+    await notify([f.userId], { title: "Tesorería cerró tu caja chica", body: "No quedaba saldo por devolver.", href: `/fondos/${id}` });
   }
   revalidatePath(`/fondos/${id}`);
   revalidatePath("/tesoreria");
@@ -566,6 +612,15 @@ export async function confirmCajaReturn(id: string, formData?: FormData) {
   const att = await treasuryAttachment(formData);
   await db.fund.update({ where: { id }, data: { status: "CERRADO", balance: 0, closedAt: new Date() } });
   await db.approval.create({ data: { fundId: id, step: "TESORERIA", decision: "TESORERIA", comment: `DEVOLUCION_CAJA_RECIBIDA:${f.balance}`, userId: user.id, ...att } });
+  await notify([f.userId], { title: "Tesorería recibió la devolución de tu caja chica", body: "La caja chica quedó cerrada.", href: `/fondos/${id}` });
   revalidatePath(`/fondos/${id}`);
   revalidatePath("/tesoreria");
+}
+
+// ---------- Avisos (campanita) ----------
+
+export async function markAllNotificationsRead() {
+  const user = await requireUser();
+  await db.notification.updateMany({ where: { userId: user.id, readAt: null }, data: { readAt: new Date() } });
+  revalidatePath("/", "layout");
 }

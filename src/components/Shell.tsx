@@ -3,6 +3,7 @@ import { ROLES } from "@/lib/format";
 import { demoEnabled, requireUser } from "@/lib/auth";
 import { pendingApprovals } from "@/lib/workflow";
 import { whatsappSimulatorEnabled } from "@/lib/features";
+import { db } from "@/lib/db";
 import { Logo } from "./Brand";
 import { Icon } from "./Icons";
 import { NavLinks, type NavItem } from "./NavLinks";
@@ -10,12 +11,16 @@ import { NavLinks, type NavItem } from "./NavLinks";
 export default async function Shell({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
   // Con flujos configurables cualquiera puede ser aprobador de un paso
-  const pending = await pendingApprovals(user);
+  const [pending, unread] = await Promise.all([
+    pendingApprovals(user),
+    db.notification.count({ where: { userId: user.id, readAt: null } }),
+  ]);
   const pendingCount = pending.reports.length + pending.funds.length;
   const approver = ["JEFE", "CONTABILIDAD", "CONTROLLER", "ADMIN"].includes(user.role) || pendingCount > 0;
   const treasury = ["TESORERIA", "ADMIN"].includes(user.role);
   const links: NavItem[] = [
     { href: "/", label: "Inicio", icon: "home" },
+    { href: "/avisos", label: "Avisos", icon: "bell", badge: unread },
     { href: "/gastos", label: "Mis gastos", icon: "receipt" },
     { href: "/informes", label: "Mis informes", icon: "folder" },
     { href: "/fondos", label: "Fondos y caja chica", icon: "wallet" },
