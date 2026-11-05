@@ -57,7 +57,41 @@ export async function setSession(userId: string) {
 }
 
 export async function clearSession() {
-  (await cookies()).delete(COOKIE);
+  const jar = await cookies();
+  jar.delete(COOKIE);
+  jar.delete(IMPERSONATOR);
+}
+
+// Personificar (demo): el admin pasa a ver la app como otro usuario. Su propio id queda en
+// otra cookie firmada para poder volver; solo se acepta si ese usuario sigue siendo ADMIN activo.
+const IMPERSONATOR = "rindefi_impersonator";
+
+export async function impersonator() {
+  const id = verify((await cookies()).get(IMPERSONATOR)?.value);
+  if (!id) return null;
+  const admin = await db.user.findUnique({ where: { id } });
+  return admin?.active && admin.role === "ADMIN" ? admin : null;
+}
+
+export async function startImpersonation(adminId: string, userId: string) {
+  // Si ya está personificando se conserva el admin original
+  const original = (await impersonator())?.id ?? adminId;
+  (await cookies()).set(IMPERSONATOR, `${original}.${sign(original)}`, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: MAX_AGE,
+  });
+  await setSession(userId);
+}
+
+export async function stopImpersonation() {
+  const admin = await impersonator();
+  (await cookies()).delete(IMPERSONATOR);
+  if (!admin) return false;
+  await setSession(admin.id);
+  return true;
 }
 
 // Correos que entran como administrador aunque nadie los haya creado (para el primer ingreso)

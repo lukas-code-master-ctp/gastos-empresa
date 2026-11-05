@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
-import { deleteUser, reactivateUser, saveUser } from "@/app/actions";
+import { deleteUser, impersonateUser, reactivateUser, saveUser } from "@/app/actions";
 import { ROLES } from "@/lib/format";
 import { Icon } from "@/components/Icons";
 import { ConfirmSubmit } from "@/components/ConfirmSubmit";
@@ -88,6 +88,16 @@ export default async function UsuariosPage() {
             <UserFields people={people} selfId={u.id} defaults={u} />
             <div className="flex items-center gap-2">
               <button className="btn-secondary flex-1">Guardar</button>
+              {u.id !== user.id && (
+                <button
+                  formAction={impersonateUser.bind(null, u.id)}
+                  formNoValidate
+                  className="btn-secondary !px-3 hover:!border-mandarina-500 hover:text-mandarina-600"
+                  title={`Ver la app como ${u.name}`}
+                >
+                  <Icon name="eye" className="size-4" /><span className="sr-only">Personificar a {u.name}</span>
+                </button>
+              )}
               {u.id === user.id ? (
                 <span className="btn-secondary !px-3 cursor-not-allowed opacity-40" title="No puedes eliminarte a ti mismo">
                   <Icon name="trash" className="size-4" /><span className="sr-only">Eliminar</span>
