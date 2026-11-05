@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { clearSession, demoEnabled, requireUser, setSession } from "@/lib/auth";
+import { clearSession, demoEnabled, requireUser, setSession, startImpersonation, stopImpersonation } from "@/lib/auth";
 import { canApprove, expenseEditMode, missingFields, nextStep, reportTotal, startFlow, stepLabel } from "@/lib/workflow";
 import { kindsOf, parseSteps, stepDefSchema } from "@/lib/flows";
 import { z } from "zod";
@@ -36,6 +36,23 @@ export async function login(formData: FormData) {
 export async function logout() {
   await clearSession();
   redirect("/login");
+}
+
+// Personificar (demo): el admin ve la app como ese usuario hasta que vuelve con el banner
+export async function impersonateUser(id: string) {
+  const admin = await requireAdmin();
+  if (id === admin.id) return;
+  const u = await db.user.findFirstOrThrow({ where: { id, companyId: admin.companyId, active: true } });
+  await startImpersonation(admin.id, u.id);
+  redirect("/");
+}
+
+export async function stopImpersonating() {
+  if (!(await stopImpersonation())) {
+    await clearSession();
+    redirect("/login");
+  }
+  redirect("/admin/usuarios");
 }
 
 // ---------- Gastos ----------

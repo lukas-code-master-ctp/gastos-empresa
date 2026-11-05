@@ -1,6 +1,6 @@
-import { logout } from "@/app/actions";
+import { logout, stopImpersonating } from "@/app/actions";
 import { ROLES } from "@/lib/format";
-import { demoEnabled, requireUser } from "@/lib/auth";
+import { demoEnabled, impersonator, requireUser } from "@/lib/auth";
 import { pendingApprovals } from "@/lib/workflow";
 import { whatsappSimulatorEnabled } from "@/lib/features";
 import { db } from "@/lib/db";
@@ -11,9 +11,10 @@ import { NavLinks, type NavItem } from "./NavLinks";
 export default async function Shell({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
   // Con flujos configurables cualquiera puede ser aprobador de un paso
-  const [pending, unread] = await Promise.all([
+  const [pending, unread, admin] = await Promise.all([
     pendingApprovals(user),
     db.notification.count({ where: { userId: user.id, readAt: null } }),
+    impersonator(),
   ]);
   const pendingCount = pending.reports.length + pending.funds.length;
   const approver = ["JEFE", "CONTABILIDAD", "CONTROLLER", "ADMIN"].includes(user.role) || pendingCount > 0;
@@ -59,7 +60,22 @@ export default async function Shell({ children }: { children: React.ReactNode })
           </form>
         </div>
       </aside>
-      <main className="relative mx-auto w-full max-w-6xl flex-1 p-4 md:p-10">{children}</main>
+      <main className="relative mx-auto w-full max-w-6xl flex-1 p-4 md:p-10">
+        {admin && admin.id !== user.id && (
+          <form action={stopImpersonating} className="sticky top-2 z-20 mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-mandarina-500 px-4 py-3 text-white shadow-lg md:top-4">
+            <div className="flex min-w-0 items-center gap-2 text-sm">
+              <Icon name="eye" className="size-4 shrink-0" />
+              <span>
+                Estás viendo Rindefi como <strong>{user.name}</strong> ({ROLES[user.role] ?? user.role}). Lo que hagas queda a su nombre.
+              </span>
+            </div>
+            <button className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-white px-3 py-1.5 text-sm font-semibold text-slate-900 transition-colors hover:bg-slate-100">
+              <Icon name="logout" className="size-4" /> Volver a {admin.name}
+            </button>
+          </form>
+        )}
+        {children}
+      </main>
     </div>
   );
 }
