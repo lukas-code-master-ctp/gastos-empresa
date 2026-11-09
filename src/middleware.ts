@@ -15,7 +15,7 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  // El webhook de WhatsApp lo llama Meta y no puede mandar la clave; /api/health es el chequeo de estado;
+  // El webhook de WhatsApp lo llama Meta y no puede mandar la clave; /api/health es el chequeo de estado; /api/keepalive lo llama el cron de Vercel;
   // /privacidad es pública porque Google la revisa para el ingreso con Google.
-  matcher: ["/((?!api/whatsapp|api/health|privacidad|_next/static|_next/image|icon.svg).*)"],
+  matcher: ["/((?!api/whatsapp|api/health|api/keepalive|privacidad|_next/static|_next/image|icon.svg).*)"],
 };
